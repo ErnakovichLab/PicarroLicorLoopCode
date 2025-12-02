@@ -11,13 +11,14 @@ A closed loop injection setup is preferable when you only have small concentrati
 
   - The sample will be diluted by the gas in the loop, helping stabilize measurements and bringing the detection baseline firmly within the range of the gas analyzer. 
   - Concentration of the sample is determined by comparing the concentration of the loop prior to sample injection to the concentration of the loop after sample injection.
+  - Although this method requires more calculations on on the raw data before they are interpretable, it has the benefit of giving very stable readings and extending the concentration and volume range of the instrument.
 
 ![](./misc/imgs/Licor_pre-post.png)
 > Figure 1. Example of CO2 before and after sample injection.
   
 Our closed-loop setup is based off of the Licor "Measuring Trace Gases in Small Samples" protocol[^1].
 
-### Schematics
+### Hardware Schematics
 
 | Licor Loop Schematic | Picarro Loop Schematic |
 |----------------------------------|--------------------------------------|
@@ -26,10 +27,9 @@ Our closed-loop setup is based off of the Licor "Measuring Trace Gases in Small 
 | **Instrument:** Li-7815 (but will also work for LI-7810, LI-7820) | **Instrument:** G2201-i with recirculation pump, A0702 |
 | **Software Requires:** Li-Integrator | **Software Requires:** Default Picarro interface |
 
-> [!NOTE]
-> Recirculation loop wiring diagrams. Air flows from the circulation pump outlet through a 4-way brass valve that controls whether the loop is open to the atmosphere or closed. Next, air flows through the needle port where samples can be injected from a septa, after which they are mixed in a mason jar (which stabilizes the signal and also dilutes the gas). Finally, the mixed samples are sent into the CRDS analyzer where their gas concentration is read, before being recirculated through the circulation pump (circulation pump is internal in Licor, external in Picarro).
+> Figure 2: Recirculation loop wiring diagrams for Licor (left) and Picarro (right). Air flows from the circulation pump outlet through a 4-way brass valve that controls whether the loop is open to the atmosphere or closed. Next, air flows through the needle port where samples can be injected from a septa, after which they are mixed in a mason jar (which stabilizes the signal and also dilutes the gas). Finally, the mixed samples are sent into the CRDS analyzer where their gas concentration is read, before being recirculated through the circulation pump (circulation pump is internal in Licor, external in Picarro).
 
-tbd: link to protocols and list
+tbd: link to protocols and materials list
 
 ## Getting Started
 
