@@ -7,10 +7,17 @@ Utility R functions for processing Picarro and Licor Data collected from a loop 
 This repository contains scripts meant for processing data on the picarro or Licor loop setup (as seen below).
 
 ### Background
-A closed loop injection setup is preferable when you only have small concentrations of gas, or in the case of the Picarro, if your isotope concentrations exceed the range of the instrument and only a small volume of sample can be detected. In both cases, the sample will be diluted by the gas in the loop, helping stabilize measurements and bringing the detection baseline firmly within the range of the gas analyzer. Concentration of the sample is determined by comparing the concentration of the loop prior to sample injection to the concentration of the loop after sample injection. Our closed-loop setup is based off of the Licor "Measuring Trace Gases in Small Samples" protocol[^1].
+A closed loop injection setup is preferable when you only have small concentrations of gas, or if the sample concentrations exceed the range of the instrument and a small volume is preferable to inject. 
 
-![Recirculation loop wiring diagrams. Air flows from the circulation pump outlet through a 4-way brass valve that controls whether the loop is open to the atmosphere or closed. Next, air flows through the needle port where samples can be injected from a septa, after which they are mixed in a mason jar (which stabilizes the signal and also dilutes the gas). Finally, the mixed samples are sent into the CRDS analyzer where their isotopic CO2 concentration is read, before being recirculated through the circulation pump. A vacuum connection between the pump and the analyzer helps draw samples through the internal chambers of the analyzer.](figures/Recirculation_loop_wiring.png){#fig-wiring-diagram}
+  - The sample will be diluted by the gas in the loop, helping stabilize measurements and bringing the detection baseline firmly within the range of the gas analyzer. 
+  - Concentration of the sample is determined by comparing the concentration of the loop prior to sample injection to the concentration of the loop after sample injection.
 
+![](./misc/imgs/Licor_pre-post.png)
+> Figure 1. Example of CO2 before and after sample injection.
+  
+Our closed-loop setup is based off of the Licor "Measuring Trace Gases in Small Samples" protocol[^1].
+
+### Schematics
 
 | Licor Loop Schematic | Picarro Loop Schematic |
 |----------------------------------|--------------------------------------|
