@@ -6,7 +6,9 @@ Utility R functions for processing Picarro and Licor Data collected from a loop 
 
 This repository contains scripts meant for processing data on the picarro or Licor loop setup. 
 
-<Holding space for image of loop>
+tbd: image of loop
+tbd: instrument information (include li-integrator info for licor)
+tbd: link to protocols and list
 
 ## Getting Started
 
@@ -30,9 +32,10 @@ install.packages("ggrepel")
 .
 ├── README.md
 ├── Veff_calculations    <- scripts for calculation of the effective volume of the loop
-│   └── src              <- functions and other source files
-├── SpreadsheetTemplates <- Templates for respiration measurments; Expected as input for most code 
-└── misc                 <- miscellaneous files that don't fit elsewhere
+├── calibration          <- tbd: scripts related to calibration of the instruments
+├── SpreadsheetTemplates <- tbd: Templates for respiration measurments; Expected as input for most code 
+├── protocols            <- tbd: protocols for gas sampling, instrument maintenance, etc.
+└── misc                 <- tbd: miscellaneous files that don't fit elsewhere
 ```
 ## Script overviews
 
