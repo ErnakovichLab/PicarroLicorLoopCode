@@ -22,13 +22,13 @@ These practices ensure that the only thing causing variation in the value of $V_
 
 The effective volume of the closed loop is necessary for the calculation of concentration within the loop. We define $V_{eff}$ (in ml) as the total volume of air in the closed loop prior to injection at a certain pressure and temperature. By injecting a specific volume ($V_{cal}$, ml) of a known calibration gas ($CO_{2\_cal}$, ppm) many times, you can observe a concentration increase (or decrease) from baseline ($CO_{2\_base}$, ppm) to a new concentration ($CO_{2\_post}$, ppm) and use that change to estimate the volume of the loop.
 
-##### Equation 1: {#equation-1}
+##### Equation 1:
 
 $$
 V_{eff} = \frac{V_{cal} \times (CO_{2\_cal} - CO_{2\_post})} {\Delta {CO_2}}
 $$
 
-##### Equation 2: {#equation-2}
+##### Equation 2:
 
 $$
 CO_{2\_post} = \frac{V_{cal}CO_{2\_cal}  + V_{eff} CO_{2\_pre}}{(V_{eff} + V_{cal}) }
@@ -107,29 +107,35 @@ Essentially this is an $M_1V_1 = M_2V_2$ situation. If the instrument and loop w
 
 6.  In addition to saving the data you record, save the raw data from the session on a different computer. (NEVER rely on laboratory instruments to store raw data longer than a week)
 
-### Appendix 1: Relating equation 1 to equation 2 {#appendix-1-relating-equation-1-to-equation-2}
+### Appendix 1: Relating equation 1 to equation 2
 
 $$
 CO_{2_{post}} = \frac{V_{cal} \times CO_{2_{cal}} + V_{eff} \times CO_{2_{pre}}} { V_{eff} + V_{cal}}
 $$
 
+
 Multiply both sides by $(V_{eff} + V_{cal})$
+
 
 $$
 CO_{2_{post}}( V_{eff} + V_{cal}) = V_{cal} \times CO_{2_{cal}} + V_{eff} \times CO_{2_{pre}}
 $$ Distribute out CO\_{2\_{post}} on the left side of the equation:
 
+
 $$
 CO_{2_{post}} \times V_{eff} + CO_{2_{post}} \times V_{cal} = V_{cal} \times CO_{2_{cal}} + V_{eff} \times CO_{2_{pre}}
 $$ Subtract $(V_{eff} \times CO_{2_{pre}})$ from both sides of the equation:
+
 
 $$
 CO_{2_{post}} \times V_{eff} + CO_{2_{post}} \times V_{cal} - V_{eff} \times CO_{2_{pre}} = V_{cal} \times CO_{2_{cal}} 
 $$ Consolidate all the $V_{eff}$ terms on the left side of the equation
 
+
 $$
 V_{eff}(CO_{2_{post}} - CO_{2_{pre}})  + (CO_{2_{post}} \times V_{cal})  = V_{cal} \times CO_{2_{cal}} 
 $$ Divide both sides by $V_{cal}$ and rearrange the equation:
+
 
 $$
 CO_{2_{cal}} = \frac{(V_{cal} \times CO_{2_{post}}) + (V_{eff} \times \Delta {CO_{2}})} { V_{cal}}
