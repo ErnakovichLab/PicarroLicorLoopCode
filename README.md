@@ -89,4 +89,4 @@ This project is licensed under the [NAME HERE] License - see the LICENSE.md file
 <insert funding information> <insert contribution information>
 
 ## References
-[^1]:  Author unknown, "Measuring Small Gas Samples", LI-COR, Lincoln, NE, USA, Protocol No. 18944, Date. Accessed: 2025-12-02. [Online]. Available  [html](https://www.licor.com/support/Trace-Gas-Analyzers/topics/measuring-small-gas-samples.html), [pdf](/misc/docs/TGA-Note-Small-Samples_18944.pdf)
+[^1]:  Author unknown, "Measuring Small Gas Samples", LI-COR, Lincoln, NE, USA, Protocol No. 18944, Date. Accessed: 2025-12-02. [Online]. Available  [html](https://www.licor.com/support/Trace-Gas-Analyzers/topics/measuring-small-gas-samples.html), [pdf](PicarroLicorLoopCode/misc/docs/TGA-Note-Small-Samples_18944.pdf)
