@@ -1,62 +1,69 @@
-# Project Title
+# Picarro and Licor Loop Code
 
-Simple overview of use/purpose.
+Utility R functions for processing Picarro and Licor Data collected from a loop setup
 
 ## Description
 
-An in-depth paragraph about your project and overview of use.
+This repository contains scripts meant for processing data on the picarro or Licor loop setup. 
+
+<Holding space for image of loop>
 
 ## Getting Started
 
 ### Dependencies
 
-* Describe any prerequisites, libraries, OS version, etc., needed before installing program.
-* ex. Windows 10
+-   R version >=4.0
+-   R libraries: tidyverse, ggrepel (optional), here
 
 ### Installing
 
-* How/where to download your program
-* Any modifications needed to be made to files/folders
+-   <to add, yml installation instructions>
 
-### Executing program
-
-* How to run the program
-* Step-by-step bullets
+```R
+install.packages("tidyverse")
+install.packages("here")
+install.packages("ggrepel")
 ```
+
+## Repository guide
+```
+.
+├── README.md
+├── Veff_calculations    <- scripts for calculation of the effective volume of the loop
+│   └── src              <- functions and other source files
+├── SpreadsheetTemplates <- Templates for respiration measurments; Expected as input for most code 
+└── misc                 <- miscellaneous files that don't fit elsewhere
+```
+## Script overviews
+
+### licor_veff_calcs.R or picarro_veff_calcs.R
+-   Takes respiration spreadsheet as input
+
+```         
 code blocks for commands
 ```
 
 ## Help
 
-Any advise for common problems or issues.
-```
-command to run if program contains helper info
+tbd:Any advise for common problems or issues.
+
+```         
+tbd
 ```
 
 ## Authors
 
-Contributors names and contact info
-
-ex. Dominique Pizzie  
-ex. [@DomPizzie](https://twitter.com/dompizzie)
+Hannah Holland-Moritz [\@hhollandmoritz](https://github.com/hhollandmoritz)
 
 ## Version History
 
-* 0.2
-    * Various bug fixes and optimizations
-    * See [commit change]() or See [release history]()
-* 0.1
-    * Initial Release
+-   0.1
+    -   Initial Release
 
 ## License
 
 This project is licensed under the [NAME HERE] License - see the LICENSE.md file for details
 
 ## Acknowledgments
-
-Inspiration, code snippets, etc.
-* [awesome-readme](https://github.com/matiassingers/awesome-readme)
-* [PurpleBooth](https://gist.github.com/PurpleBooth/109311bb0361f32d87a2)
-* [dbader](https://github.com/dbader/readme-template)
-* [zenorocha](https://gist.github.com/zenorocha/4526327)
-* [fvcproductions](https://gist.github.com/fvcproductions/1bfc2d4aecb01a834b46)
+<insert funding information>
+<insert contribution information>
