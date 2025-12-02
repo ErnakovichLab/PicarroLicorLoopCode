@@ -7,6 +7,7 @@ Utility R functions for processing Picarro and Licor Data collected from a loop 
 This repository contains scripts meant for processing data on the picarro or Licor loop setup. 
 
 tbd: image of loop
+![Licor Loop setup](./misc/img/licor_loop_setup.jpg)
 tbd: instrument information (include li-integrator info for licor)
 tbd: link to protocols and list
 
