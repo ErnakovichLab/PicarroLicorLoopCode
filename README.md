@@ -45,6 +45,13 @@ install.packages("ggrepel")
 ```         
 code blocks for commands
 ```
+## tbd: scripts for calculating and plotting gas flux for picarro and licor
+
+## Protocol overviews
+tbd list of protocols to add:
+- how to collect data for veff
+- how to take a standard curve
+- how to calibrate instrument (different for licor and picarro)
 
 ## Help
 
