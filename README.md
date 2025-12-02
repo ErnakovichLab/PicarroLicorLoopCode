@@ -13,7 +13,7 @@ This repository contains scripts meant for processing data on the picarro or Lic
 | **Instrument:** Li-7815 (but will also work for LI-7810, LI-7820) | **Instrument:** G2201-i with recirculation pump, A0702 |
 | **Software Requires:** Li-Integrator | **Software Requires:** Default Picarro interface |
 
-This setup is inspired by the Licor Small Sample Gas Application "Closed loop method". [\^1]
+This setup is inspired by the Licor Small Sample Gas Application "Closed loop method".[^1]
 
 tbd: link to protocols and list
 
