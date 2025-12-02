@@ -1,0 +1,220 @@
+---
+title: "Quality Control of Respiration measurements"
+format: html
+editor: visual
+---
+```{r}
+#| message: false
+#| warning: false
+#| include: false
+knitr::opts_chunk$set(echo = T, eval = T, message = F, warning = F)
+# load libraries
+library(tidyverse)
+library(lubridate)
+library(broom)
+
+# Set ggplot theme
+theme_set(theme_bw())
+```
+
+## 
+This script provides a guide for how to perform QA/QC on respiration measurements
+
+## User setup
+
+```{r user-defined-variables}
+
+# location of sample metadata sheet
+
+# location of sample respiration spreadsheets
+
+```
+
+```{r useful-constants-functions}
+
+# Define Constants
+GasConstant_R <- 0.0821 # L*atm*K^-1*mol^-1
+PSI_to_atm <- 0.06804596
+
+# Outlier function
+isnt_out_tukey <- function(x, k = 1.5, na.rm = TRUE) {
+  quar <- quantile(x, probs = c(0.25, 0.75), na.rm = na.rm)
+  iqr <- diff(quar)
+  
+  (quar[1] - k * iqr <= x) & (x <= quar[2] + k * iqr)
+}
+```
+
+**Instructions for users**: Download the "*-Respiration.xlsx" spreadsheet to a folder called `data/licor/`. All respiration spreadsheets must follow the naming convention `YYYY-MM-DD_Respiration.xlsx` 
+
+```{r read-resp-data}
+# Reading in respiration information
+Resp_files <- list.files("data/licor/", pattern = "-Respiration.xlsx", full.names = T)
+
+gsub("(data/licor\\/\\/)(.{1,})(-Respiration.xlsx)","\\2", Resp_files)
+resp_raw <- map2_dfr(Resp_files, ~readxl::read_excel(.x,sheet = 1, 
+                                                       col_types = c(rep("text", 1),
+                                                                     rep("numeric", 6),
+                                                                     "date",
+                                                                     rep("text", 3),
+                                                                     "date",
+                                                                     rep("numeric", 4),
+                                                                     "text",
+                                                                     rep("numeric", 10),
+                                                                     "guess","guess", "guess"),
+                                                    na = c("nan", "#VALUE!", "#DIV/0!"))) %>%
+  filter(!is.na(SampleType)) %>%
+  select(1:27) %>%
+  mutate(Date = as_date(Timestamp),
+         IncubationDay = Date - as_date("2024-10-31 21:57:00"),
+         IncubationTime = Timestamp - as_datetime("2024-10-31 22:30:00"),
+         TimeSinceZerod = Timestamp - `Time Last Zeroed`,
+         `Jar Number` = as.character(`Jar Number`),
+         JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>% # multiply by atm conversion
+  mutate(SampleType = factor(SampleType),
+         `Jar Number` = factor(as.character(`Jar Number`)))
+
+
+```
+
+```{r read-sample-data}
+# Reading in sample information
+
+jar_info_raw <- readxl::read_excel(here("data/Sample Tracking.xlsx"), sheet = 1, na = c("nan", "#VALUE!", "#DIV/0!")) %>%
+  select(3:15)
+
+jar_mass <- jar_info_raw %>%
+  mutate(Jar = as.character(Jar)) %>%
+  group_by(Jar) %>%
+  summarize(soil_weight_wet = sum(`Sample Weight (g)`),
+            soil_weight_dry = soil_weight_wet/1.569)
+
+jar_info <- jar_info_raw %>%
+  select(1:9) %>%
+  distinct() %>%
+  mutate(Jar = as.character(Jar),
+         `Microbial Community` = factor(`Microbial Community`, levels = Inocula_levels),
+         `Carbon Source` = factor(`Carbon Source`, levels = carbon_levels)) %>%
+  left_join(jar_mass, by = "Jar") %>%
+  select(-`Jar Number`)
+
+
+```
+
+
+### Calculate Respirations
+
+-- Hannah notes to change:
+1) turn into function
+2) remove dosing
+3) add readings to filter option to function
+
+```{r, respiration-calculations}
+
+samples_resp <- resp_raw %>%
+  # setting two jars to zero on November 23; These are negative, but likely to be 0
+  mutate(`True amount of CO2 (uMol)` = ifelse(Date == "2024-11-23" & `Jar Number` %in% c("72", "7"), 0, `True amount of CO2 (uMol)`)) %>%
+  filter(SampleType == "Sample") %>%
+  # Convert into a per-gram basis, based on Jar number
+  left_join(jar_info, by = c("Jar Number" = "Jar")) %>%
+  # Correct initial readings
+  mutate(original_carbon_ppm = 485,
+         original_carbon_umol_per_ml = (original_carbon_ppm)*(((1/1000)*1*1)/(GasConstant_R*293.25)),
+         baseline_c_in_5ml = ifelse(IncubationDay == 2, 5*original_carbon_umol_per_ml, NA)) %>%
+         # `True amount of CO2 (uMol)` = ifelse(IncubationDay == 2, `True amount of CO2 (uMol)` - baseline_c_in_5ml,
+         #                                      `True amount of CO2 (uMol)`)) %>%
+  #Correct the subset that weren't zero'd on the first measurment day
+  mutate(baseline_carbon_umol_per_ml = mean_umol_per_ml_baseline,
+         baseline_c_in_5ml = ifelse(`Jar Number` %in% jars_to_adjust & Date == "2024-11-04", 5*baseline_carbon_umol_per_ml,
+                                    baseline_c_in_5ml),
+         `True amount of CO2 (uMol)` = ifelse(!is.na(baseline_c_in_5ml), `True amount of CO2 (uMol)` - baseline_c_in_5ml,
+                                              `True amount of CO2 (uMol)`)) %>%
+  # If jar pressure is 0 PSI make it a very small number rather than zero:
+  mutate(`Jar pressure before sampling (psi)` = ifelse(`Jar pressure before sampling (psi)` == 0, 0.001, `Jar pressure before sampling (psi)`)) %>%
+  mutate(jar_headspace_mL = 937-40,
+         MolAir_headspace = (1/1000)*(jar_headspace_mL * JarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
+         umol_Carbon_in_headspace = jar_headspace_mL * (`True amount of CO2 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
+         umol_Carbon_per_molAir = umol_Carbon_in_headspace/MolAir_headspace,
+         ug_Carbon_in_headspace = jar_headspace_mL * (`True amount of CO2 (uMol)` * 12.01)/`Volume of sample or standard (mL of gas measured)`,
+         ug_Carbon_per_g_soil = ug_Carbon_in_headspace/soil_weight_dry) %>%
+  # make it a rate just using temporary numbers here
+  mutate(ug_Carbon_per_g_soil_per_hour = ug_Carbon_per_g_soil/as.numeric(TimeSinceZerod),
+         ug_Carbon_per_g_soil_per_day = ug_Carbon_per_g_soil/(as.period(TimeSinceZerod, unit = "hours")/days(1))) %>%
+  # Removing Jars to adjust. I don't trust these on November 4th
+  mutate(RemoveJars = ifelse(Date == "2024-11-04" & `Jar Number` %in% jars_to_adjust, FALSE, TRUE)) %>%
+  filter(RemoveJars) %>% 
+  select(-RemoveJars) %>%
+  left_join(carbon_addition_timespans, by = c("Jar Number", "Date", "Carbon Source")) %>%
+  # Idenfity outliers
+  mutate(DosingC = paste0(`Carbon Source`, " Dosing: ", DosingRound),
+         DosingCDate = paste0(`Carbon Source`, " Dosing: ", DosingRound, " - ", Date),
+         DosingRound = as.factor(DosingRound),
+         Days_since_c_addition_factor = as.factor(as.numeric(Days_since_c_addition))) %>%
+  # select(DosingC, DosingCDate, DosingRound, Days_since_c_addition_factor, `Jar Number`, `Carbon Source`, `Microbial Community`,
+  #        ug_Carbon_per_g_soil_per_hour) %>% #glimpse()
+  group_by(`Carbon Source`, `Microbial Community`, DosingCDate) %>%
+  # Identify outliers
+  mutate(outlier = !(isnt_out_tukey(ug_Carbon_per_g_soil_per_hour))) %>%
+  ungroup()
+
+
+
+samples_resp_cumulative <- samples_resp %>%
+  select(`Jar Number`, `Time Last Zeroed`, TimeSinceZerod, Date:soil_weight_dry, ug_Carbon_per_g_soil, ug_Carbon_per_g_soil_per_hour, ug_Carbon_per_g_soil_per_day) %>%
+  group_by(`Jar Number`, Date) %>%
+  summarise(ug_Carbon_per_g_soil_per_hour = mean(ug_Carbon_per_g_soil_per_hour),
+            ug_Carbon_per_g_soil_per_day = mean(ug_Carbon_per_g_soil_per_day),
+            TimeSinceZerod  = mean(TimeSinceZerod)) %>% # fix double measurements
+  arrange(`Jar Number`, Date) %>%
+  mutate(Carbon_produced_since_zeroed = ug_Carbon_per_g_soil_per_hour*(as.numeric(TimeSinceZerod)),
+         cum_carbon = cumsum(ug_Carbon_per_g_soil_per_hour*(as.numeric(TimeSinceZerod))),
+         cum_carbon_day = cumsum(ug_Carbon_per_g_soil_per_day*(as.period(TimeSinceZerod, unit = "hours")/days(1)))) %>%
+  left_join(jar_info, by = c("Jar Number" = "Jar")) %>% ungroup() %>%
+  mutate(IncubationTime = Date - date("2024-10-31")) %>%
+  left_join(carbon_addition_timespans, by = c("Jar Number", "Date", "Carbon Source")) %>%
+  left_join(samples_resp %>% select(`Jar Number`, Date, outlier), by = c("Jar Number", "Date"))
+
+
+samples_resp_cumulative_nooutlier <- samples_resp %>%
+  select(`Jar Number`, `Time Last Zeroed`, TimeSinceZerod, Date:soil_weight_dry, ug_Carbon_per_g_soil, ug_Carbon_per_g_soil_per_hour, ug_Carbon_per_g_soil_per_day, outlier) %>%
+  filter(!outlier) %>%
+  group_by(`Jar Number`, Date) %>%
+  summarise(ug_Carbon_per_g_soil_per_hour = mean(ug_Carbon_per_g_soil_per_hour),
+            ug_Carbon_per_g_soil_per_day = mean(ug_Carbon_per_g_soil_per_day),
+            TimeSinceZerod  = mean(TimeSinceZerod)) %>% # fix double measurements
+  arrange(`Jar Number`, Date) %>%
+  mutate(Carbon_produced_since_zeroed = ug_Carbon_per_g_soil_per_hour*(as.numeric(TimeSinceZerod)),
+         cum_carbon = cumsum(ug_Carbon_per_g_soil_per_hour*(as.numeric(TimeSinceZerod))),
+         cum_carbon_day = cumsum(ug_Carbon_per_g_soil_per_day*(as.period(TimeSinceZerod, unit = "hours")/days(1)))) %>%
+  left_join(jar_info, by = c("Jar Number" = "Jar")) %>% ungroup() %>%
+  mutate(IncubationTime = Date - date("2024-10-31")) %>%
+  left_join(carbon_addition_timespans, by = c("Jar Number", "Date", "Carbon Source")) %>%
+  left_join(samples_resp %>% select(`Jar Number`, Date, outlier), by = c("Jar Number", "Date"))
+
+
+```
+
+### Oxygen treatments must be oxic
+
+Check that no ppm has exceeded 2% CO2
+
+```{r}
+
+samples_resp %>%
+  filter(!is.na(umol_Carbon_per_molAir)) %>%
+  filter(umol_Carbon_per_molAir < 11000) %>%
+  ggplot(aes(x = IncubationTime, y = umol_Carbon_per_molAir)) +
+  respiration_plotting_layers +
+  geom_hline(yintercept = 400, color = "#B72F40", linetype = "dashed") +
+  #geom_hline(yintercept = 20000, color = "#B72F40", linetype = "dashed") +
+  #annotate("curve", xend = 5, x = 5 + 0.5, y = 40000, yend = 20000, curvature = -0.1,
+  #         arrow = arrow(length = unit(0.03, "npc")), color = "#B72F40") +
+  #annotate("text", x = 5 + 0.5, y = 40000, label = "2% CO2", hjust = 0, vjust = 0, color = "#B72F40") +
+  geom_text(aes(label = `Jar Number`)) +
+  ylab("umol carbon per mol air (ppm)") + xlab("Day of Incubation") +
+  scale_y_continuous(labels = scales::comma) +
+  theme(legend.position = "bottom")
+
+```
+
+
