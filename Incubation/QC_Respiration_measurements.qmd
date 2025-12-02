@@ -10,6 +10,7 @@ editor: visual
 knitr::opts_chunk$set(echo = T, eval = T, message = F, warning = F)
 # load libraries
 library(tidyverse)
+library(here)
 library(lubridate)
 library(broom)
 
@@ -25,9 +26,10 @@ This script provides a guide for how to perform QA/QC on respiration measurement
 ```{r user-defined-variables}
 
 # location of sample metadata sheet
+fp_metadata <- "/examples/incubation/Sample Tracking.xlsx"
 
 # location of sample respiration spreadsheets
-
+fp_licor_ <- "examples/incubation/licor_data"
 ```
 
 ```{r useful-constants-functions}
@@ -49,7 +51,7 @@ isnt_out_tukey <- function(x, k = 1.5, na.rm = TRUE) {
 
 ```{r read-resp-data}
 # Reading in respiration information
-Resp_files <- list.files("data/licor/", pattern = "-Respiration.xlsx", full.names = T)
+Resp_files <- list.files(here(fp_licor), pattern = "-Respiration.xlsx", full.names = T)
 
 gsub("(data/licor\\/\\/)(.{1,})(-Respiration.xlsx)","\\2", Resp_files)
 resp_raw <- map2_dfr(Resp_files, ~readxl::read_excel(.x,sheet = 1, 
