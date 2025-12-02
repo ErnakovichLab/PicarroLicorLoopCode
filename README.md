@@ -36,6 +36,7 @@ install.packages("ggrepel")
 ├── SpreadsheetTemplates <- tbd: Templates for respiration measurments; Expected as input for most code 
 ├── protocols            <- tbd: protocols for gas sampling, instrument maintenance, etc.
 └── misc                 <- tbd: miscellaneous files that don't fit elsewhere
+    └── img              <- images
 ```
 ## Script overviews
 
