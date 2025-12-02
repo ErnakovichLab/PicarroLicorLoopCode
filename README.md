@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 <!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
 
 <a id="readme-top"></a> <!--
@@ -26,11 +20,11 @@ editor_options:
 -->
 ```
 
-[![Contributors](https://img.shields.io/github/contributors/github_username/repo_name.svg?style=for-the-badge)](https://github.com/github_username/repo_name/graphs/contributors)
-[![Forks](https://img.shields.io/github/forks/github_username/repo_name.svg?style=for-the-badge)](https://github.com/github_username/repo_name/network/members)
-[![Stargazers](https://img.shields.io/github/stars/ErnakovicLab/PicarroLicroLoopCode.svg?style=for-the-badge)](https://github.com/github_username/repo_name/stargazers)
-[![Issues](https://img.shields.io/github/issues/github_username/repo_name.svg?style=for-the-badge)](https://github.com/github_username/repo_name/issues)
-[![project_license](https://img.shields.io/github/license/github_username/repo_name.svg?style=for-the-badge)](https://github.com/github_username/repo_name/blob/master/LICENSE.txt)
+[![Contributors](https://img.shields.io/github/contributors/ErnakovicLab/PicarroLicroLoopCode.svg?style=for-the-badge)](https://github.com/ErnakovicLab/PicarroLicroLoopCode/graphs/contributors)
+[![Forks](https://img.shields.io/github/forks/ErnakovicLab/PicarroLicroLoopCode.svg?style=for-the-badge)](https://github.com/ErnakovicLab/PicarroLicroLoopCode/network/members)
+[![Stargazers](https://img.shields.io/github/stars/ErnakovicLab/PicarroLicroLoopCode.svg?style=for-the-badge)](https://github.com/ErnakovicLab/PicarroLicroLoopCode/stargazers)
+[![Issues](https://img.shields.io/github/issues/ErnakovicLab/PicarroLicroLoopCode.svg?style=for-the-badge)](https://github.com/ErnakovicLab/PicarroLicroLoopCode/issues)
+[![project_license](https://img.shields.io/github/license/ErnakovicLab/PicarroLicroLoopCode.svg?style=for-the-badge)](https://github.com/ErnakovicLab/PicarroLicroLoopCode/blob/master/LICENSE.txt)
 [![LinkedIn](https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555)](https://linkedin.com/in/linkedin_username)
 
 <!-- PROJECT LOGO -->
@@ -38,7 +32,7 @@ editor_options:
 <br />
 
 ::: {align="center"}
-<a href="https://github.com/github_username/repo_name">
+<a href="https://github.com/ErnakovicLab/PicarroLicroLoopCode">
 <img src="images/logo.png" alt="Logo" width="80" height="80"/> </a>
 
 <h3 align="center">
@@ -161,7 +155,7 @@ and how to install them. \* npm `sh   npm install npm@latest -g`
 2.  Clone the repo
 
     ``` sh
-    git clone https://github.com/github_username/repo_name.git
+    git clone https://github.com/ErnakovicLab/PicarroLicroLoopCode.git
     ```
 
 3.  Install NPM packages
@@ -179,7 +173,7 @@ and how to install them. \* npm `sh   npm install npm@latest -g`
 5.  Change git remote url to avoid accidental pushes to base project
 
     ``` sh
-    git remote set-url origin github_username/repo_name
+    git remote set-url origin ErnakovicLab/PicarroLicroLoopCode
     git remote -v # confirm the changes
     ```
 
@@ -216,7 +210,7 @@ You may also link to more resources.
     -   [ ] Nested Feature
 
 See the [open
-issues](https://github.com/github_username/repo_name/issues) for a full
+issues](https://github.com/ErnakovicLab/PicarroLicroLoopCode/issues) for a full
 list of proposed features (and known issues).
 
 <p align="right">
@@ -253,8 +247,8 @@ again!
 
 ### Top contributors:
 
-<a href="https://github.com/github_username/repo_name/graphs/contributors">
-<img src="https://contrib.rocks/image?repo=github_username/repo_name" alt="contrib.rocks image"/>
+<a href="https://github.com/ErnakovicLab/PicarroLicroLoopCode/graphs/contributors">
+<img src="https://contrib.rocks/image?repo=ErnakovicLab/PicarroLicroLoopCode" alt="contrib.rocks image"/>
 </a>
 
 <!-- LICENSE -->
@@ -277,7 +271,7 @@ information.
 Your Name - [\@twitter_handle](https://twitter.com/twitter_handle) -
 [email\@email](mailto:email@email){.email}\_client.com
 
-Project Link: <https://github.com/github_username/repo_name>
+Project Link: <https://github.com/ErnakovicLab/PicarroLicroLoopCode>
 
 <p align="right">
 
