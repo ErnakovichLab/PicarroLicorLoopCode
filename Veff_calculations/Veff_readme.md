@@ -119,23 +119,27 @@ Multiply both sides by $(V_{eff} + V_{cal})$
 
 $$
 CO_{2_{post}}( V_{eff} + V_{cal}) = V_{cal} \times CO_{2_{cal}} + V_{eff} \times CO_{2_{pre}}
-$$ Distribute out CO\_{2\_{post}} on the left side of the equation:
+$$ 
 
+Distribute out CO\_{2\_{post}} on the left side of the equation:
 
 $$
 CO_{2_{post}} \times V_{eff} + CO_{2_{post}} \times V_{cal} = V_{cal} \times CO_{2_{cal}} + V_{eff} \times CO_{2_{pre}}
-$$ Subtract $(V_{eff} \times CO_{2_{pre}})$ from both sides of the equation:
+$$ 
 
+Subtract $(V_{eff} \times CO_{2_{pre}})$ from both sides of the equation:
 
 $$
 CO_{2_{post}} \times V_{eff} + CO_{2_{post}} \times V_{cal} - V_{eff} \times CO_{2_{pre}} = V_{cal} \times CO_{2_{cal}} 
-$$ Consolidate all the $V_{eff}$ terms on the left side of the equation
+$$ 
 
+Consolidate all the $V_{eff}$ terms on the left side of the equation
 
 $$
 V_{eff}(CO_{2_{post}} - CO_{2_{pre}})  + (CO_{2_{post}} \times V_{cal})  = V_{cal} \times CO_{2_{cal}} 
-$$ Divide both sides by $V_{cal}$ and rearrange the equation:
+$$ 
 
+Divide both sides by $V_{cal}$ and rearrange the equation:
 
 $$
 CO_{2_{cal}} = \frac{(V_{cal} \times CO_{2_{post}}) + (V_{eff} \times \Delta {CO_{2}})} { V_{cal}}
