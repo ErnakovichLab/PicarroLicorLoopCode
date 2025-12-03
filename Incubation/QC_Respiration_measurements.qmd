@@ -3,6 +3,7 @@ title: "Quality Control of Respiration measurements"
 format: html
 editor: visual
 ---
+
 ```{r}
 #| message: false
 #| warning: false
@@ -19,6 +20,7 @@ theme_set(theme_bw())
 ```
 
 ## 
+
 This script provides a guide for how to perform QA/QC on respiration measurements
 
 ## User setup
@@ -29,7 +31,7 @@ This script provides a guide for how to perform QA/QC on respiration measurement
 fp_metadata <- "/examples/incubation/Sample Tracking.xlsx"
 
 # location of sample respiration spreadsheets
-fp_licor_ <- "examples/incubation/licor_data"
+fp_licor <- "examples/incubation/licor_data"
 ```
 
 ```{r useful-constants-functions}
@@ -47,35 +49,116 @@ isnt_out_tukey <- function(x, k = 1.5, na.rm = TRUE) {
 }
 ```
 
-**Instructions for users**: Download the "*-Respiration.xlsx" spreadsheet to a folder called `data/licor/`. All respiration spreadsheets must follow the naming convention `YYYY-MM-DD_Respiration.xlsx` 
+**Instructions for users**: Download the "\*-Respiration.xlsx" spreadsheet to a folder called `data/licor/`. All respiration spreadsheets must follow the naming convention `YYYY-MM-DD_Respiration.xlsx`
 
 ```{r read-resp-data}
 # Reading in respiration information
 Resp_files <- list.files(here(fp_licor), pattern = "-Respiration.xlsx", full.names = T)
 
-gsub("(data/licor\\/\\/)(.{1,})(-Respiration.xlsx)","\\2", Resp_files)
-resp_raw <- map2_dfr(Resp_files, ~readxl::read_excel(.x,sheet = 1, 
-                                                       col_types = c(rep("text", 1),
-                                                                     rep("numeric", 6),
-                                                                     "date",
-                                                                     rep("text", 3),
-                                                                     "date",
-                                                                     rep("numeric", 4),
-                                                                     "text",
-                                                                     rep("numeric", 10),
-                                                                     "guess","guess", "guess"),
-                                                    na = c("nan", "#VALUE!", "#DIV/0!"))) %>%
-  filter(!is.na(SampleType)) %>%
-  select(1:27) %>%
-  mutate(Date = as_date(Timestamp),
-         IncubationDay = Date - as_date("2024-10-31 21:57:00"),
-         IncubationTime = Timestamp - as_datetime("2024-10-31 22:30:00"),
-         TimeSinceZerod = Timestamp - `Time Last Zeroed`,
-         `Jar Number` = as.character(`Jar Number`),
-         JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>% # multiply by atm conversion
+gsub("(.{1,})(-Respiration.xlsx)","\\1", basename(Resp_files))
+
+
+
+#' Takes a folder containng either Picarro or Licor-style respiration templates
+#' and reads them in, does baic cleaning functions on them. 
+#' @param resp_file_path_licor a directory path where identically formated respiration spreadsheets for the licor are housed. If you do not have data from the instrument, leave argument blank.
+#' @param resp_file_path_picarro a directory path where identically formated respiration spreadsheets for the picarro are housed. If you do not have data from the instrument, leave argument blank.
+#' @param sample_id_column defaults to "Jar Number", change only if you have changed the sample id column name. A character.
+#' @param incubation_start A character that can be coerced into a datetime. If not specified, defaults to earliest datetime in respiration measurements
+#' @return a data frame.
+#' @examples
+read_respiration_files <- function(resp_file_path_licor = NULL,
+                                   resp_file_path_picarro = NULL, 
+                                   sample_id_column = "Jar Number",
+                                   incubation_start=NULL) {
+  # Dependencies
+  library(tidyverse)
+  library(lubridate)
+  library(readxl)
+  
+  # Constants
+  PSI_to_atm <- 0.06804596
+  
+  # Testing
+  resp_file_path_licor = NULL
+  resp_file_path_picarro = NULL
+  # Check arguments for validity and warn user about states  
+  stopifnot((!is.null(resp_file_path_licor) | !is.null(resp_file_path_picarro)))
+  
+  
+  # Initial read-in
+  if(!is.null(resp_file_path_licor)) {
+    Resp_files <- list.files(here(resp_file_path_licor),
+                             pattern = "-Respiration.xlsx", full.names = T)
+    
+    col_types_licor <- c(rep("text", 2), #SampleType:JarNumber
+                         rep("numeric", 5), #RoomTemperature:ConcentrationOfStandard
+                         "date", # Time last zeroed
+                         rep("text", 3), # Comments, id, si.no
+                         "date", # timestamp
+                         rep("numeric", 4), # mean-pre:Est Conc
+                         "text", # Remarks
+                         rep("numeric", 10), #:effective volume of loop:True amount of CO2
+                       "guess","guess", "guess") # standard curve calcs
+    
+    resp_raw_licor <- map2_dfr(Resp_files, 
+                               ~readxl::read_excel(.x,sheet = 1,
+                                                   col_types = col_types_licor,
+                                                   na = c("nan", "#VALUE!", "#DIV/0!"))) %>% 
+      filter(!is.na(SampleType)) %>%
+      select(SampleType:`True amount of CO2 (uMol)`) 
+    
+    # HANNAH start here - change names so that licor and picarro respiration sheets have same names.
+      
+    
+  }
+  
+  if(!is.null(resp_file_path_picarro)) {
+    Resp_files <- list.files(here(resp_file_path_picarro),
+                             pattern = "-Respiration.xlsx", full.names = T)
+    
+    col_types_picarro <- c(rep("text", 2), #sampletype:jar number
+                         rep("numeric", 14), #RoomTemperature:EffectiveIsotopicRatio
+                         "date", #time last zeroed
+                         rep("text", 1), # comments
+                         "date", # Date
+                         "text", # time of start of measurments
+                         rep("numeric", 8), #Mean of pre-12CO2:MeanH2O%post 
+                         "text", # Remarks 
+                         rep("numeric", 23), # effective volume of loop:TrueDelta permil
+                       rep("guess", 9)) # regression calculations
+    
+    # Read in data
+    resp_raw_picarro <- map2_dfr(Resp_files, 
+                               ~readxl::read_excel(.x,sheet = 1, skip = 1,
+                                                   col_types = col_types_picarro,
+                                                   na = c("nan", "#VALUE!", "#DIV/0!"))) %>% 
+      filter(!is.na(SampleType)) %>%
+      select(SampleType:`True delta (permil)`) 
+        # HANNAH start here - change names so that licor and picarro respiration sheets have same names.
+  }
+  
+  
+  # Next steps:
+  # Determine which of the resp_raw data is present (use exists(resp_raw_picarro))
+  # combine data together into one dataframe
+  # Create the incubation day and time columns, use either the user-specified beginning datetime or the minimum date
+  
+  
+  resp_raw_picarro
+  
+  resp_raw <- resp_raw %>%  
+    mutate(Date = as_date(Timestamp),
+    IncubationDay = Date - as_date("2024-10-31 21:57:00"),
+    IncubationTime = Timestamp - as_datetime("2024-10-31 22:30:00"),
+    TimeSinceZerod = Timestamp - `Time Last Zeroed`,
+    `Jar Number` = as.character(`Jar Number`),
+    JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>% # multiply by atm conversion
   mutate(SampleType = factor(SampleType),
          `Jar Number` = factor(as.character(`Jar Number`)))
-
+  
+  
+}
 
 ```
 
@@ -103,13 +186,9 @@ jar_info <- jar_info_raw %>%
 
 ```
 
-
 ### Calculate Respirations
 
--- Hannah notes to change:
-1) turn into function
-2) remove dosing
-3) add readings to filter option to function
+-- Hannah notes to change: 1) turn into function 2) remove dosing 3) add readings to filter option to function
 
 ```{r, respiration-calculations}
 
@@ -218,5 +297,3 @@ samples_resp %>%
   theme(legend.position = "bottom")
 
 ```
-
-
