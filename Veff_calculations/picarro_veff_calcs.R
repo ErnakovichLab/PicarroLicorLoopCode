@@ -20,6 +20,7 @@ veff_estimation <- veff_estimation_raw %>%
   slice(start_row:end_row) %>%
   filter(!(SampleType %in% exclude_sampletypes)) %>% # remove rows where mistakes were made
   select(`Volume of sample or standard (mL of gas measured)`,
+         `Room Temperature (degC)`, `RoomPressure (hPa)`,
          `Concentration of Standard Curve CO2 Gas (ppm)`,
          Date, `Time of start of measurement (write at least every 5 samples)`,
          `Mean of pre 12CO2_dry concentration (PPM)`,
@@ -36,8 +37,9 @@ veff_estimation <- veff_estimation_raw %>%
 
 #### Quality Control of Volume Calculation #####################################
 # Use the plots in this section to perform quality control on your data.
-# Are there any patterns in estimates related to injection time, or sample volume?
-# 
+# Are there any patterns in estimates related to injection time, sample volume, 
+# room pressure, or room temperature?
+
 jitter_settings <- position_jitter(width = 0.4, height = 0, seed = 123)
 ggplot(veff_estimation, 
        aes(y = Veff, x = SampleNumber)) +
@@ -50,6 +52,18 @@ ggplot(veff_estimation,
        aes(y = Veff, x = Vcal)) +
   geom_point() +
   ylab("Effective Volume of Loop (mL)") + xlab("Sample volume (mL)") +
+  theme_bw()
+
+ggplot(veff_estimation, 
+       aes(y = Veff, x = `RoomPressure (hPa)`)) +
+  geom_point() +
+  ylab("Effective Volume of Loop (mL)") + xlab("Room Pressure (hPa)") +
+  theme_bw()
+
+ggplot(veff_estimation, 
+       aes(y = Veff, x = `Room Temperature (degC)`)) +
+  geom_point() +
+  ylab("Effective Volume of Loop (mL)") + xlab("Room Temperature (degC)") +
   theme_bw()
 
 # Any outliers?
