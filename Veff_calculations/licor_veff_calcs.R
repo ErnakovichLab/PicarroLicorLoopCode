@@ -8,18 +8,39 @@ library(here)
 resp_spreadsheet_fp <- "~/Downloads/Respiration Spreadsheet Template.xlsx"
 
 # Data about where the effective volume measurments start
-start_row <- 1 # row of dataframe where measurements start - does not include header rows (e.g. row 3 in spreadsheet = 1 in dataframe)
-end_row <- 20 # row of dataframe where measurements end - does not include header rows (e.g. row 23 in spreadsheet = 20 in dataframe)
-exclude_sampletypes <- c("mistake") # the value of "SampleType" column for samples you want to exclude from the analyses
+start_row <- 1 # row of dataframe where measurements start - does not include header rows (e.g. row 3 in spreadsheet = 2 in dataframe)
+end_row <- 22 # row of dataframe where measurements end - does not include header rows (e.g. row 22 in spreadsheet = 20 in dataframe)
+exclude_sampletypes <- c("mistake") # the value of "SampleType" column for samples you want to exclude from the analyses; 
+# Note, any row without a value for "SampleType" will be removed
+
+# Column types - probably don't need to edit these; ensures data is read in correctly
+col_type_list = c(rep("text", 2), # SampleType:JarNumber
+              rep("numeric", 5), # Room temperature : Concentration of standard gas (ppm)
+              "text", # Time last zeroed
+              rep("text", 3), # ID:Sl.No
+              "text", # Timestamp
+              rep("numeric", 4), # Mean-pre:`Est:Conc:`
+              "text", # Remarks
+              rep("numeric", 10), # Effective volume of loop:True amount of CO2(uMol)
+              # note: depending whether you use google sheets or excel, or other editor, 
+              # read_excel may interpret the number of columns as 29 or 30. 
+              # if an error is thrown, simply remove one "guess" column to fix.
+              "guess","guess", "guess") # regression calculation columns 
+
+na_values_excel = c("nan", "#VALUE!", "#DIV/0!")
 
 #### Effective Volume Calculation ##############################################
-veff_estimation_raw <- readxl::read_excel(resp_spreadsheet_fp)
+veff_estimation_raw <- readxl::read_excel(resp_spreadsheet_fp, 
+                                          col_types = col_type_list, 
+                                          na = na_values_excel
+                                          )
 
 veff_estimation <- veff_estimation_raw %>%
   # Clean and filter out unnessesary columns and rows
   slice(start_row:end_row) %>%
   filter(!(SampleType %in% exclude_sampletypes)) %>% # remove rows where mistakes were made
   select(`Volume of sample or standard (mL of gas measured)`,
+         `Room Temperature (degC)`, `RoomPressure (hPa)`,
          `Concentration of Standard Curve Gas (ppm)`,
          Timestamp,
          `Mean-pre`, # CO2 concentration prior to injection, ppm
@@ -27,6 +48,7 @@ veff_estimation <- veff_estimation_raw %>%
          `Delta`, # difference between Mean-pre and Mean-post, ppm
          `Effective Volume of Loop (mL)`) %>%
   filter(!is.na(`Timestamp`)) %>%
+  mutate(Timestamp = as.POSIXct(Timestamp)) %>%
   # Calculate the volume of the loop: Veff = Vstandard*(ConcentrationOfStandard - PostInjectionCO2Concentration) / PrePostCO2Difference
   mutate(Veff_numerator = `Volume of sample or standard (mL of gas measured)` *(`Concentration of Standard Curve Gas (ppm)` - `Mean-post`),
          Veff_denominator = `Delta`,
@@ -36,7 +58,8 @@ veff_estimation <- veff_estimation_raw %>%
 
 #### Quality Control of Volume Calculation #####################################
 # Use the plots in this section to perform quality control on your data.
-# Are there any patterns in estimates related to injection time, or sample volume?
+# Are there any patterns in estimates related to injection time, sample volume, 
+# room pressure, or room temperature?
 # 
 jitter_settings <- position_jitter(width = 0.4, height = 0, seed = 123)
 ggplot(veff_estimation, 
@@ -49,7 +72,23 @@ ggplot(veff_estimation,
 ggplot(veff_estimation, 
        aes(y = Veff, x = Vcal)) +
   geom_point() +
+  geom_text_repel(aes(label = SampleNumber)) +
   ylab("Effective Volume of Loop (mL)") + xlab("Sample volume (mL)") +
+  theme_bw()
+
+
+ggplot(veff_estimation, 
+       aes(y = Veff, x = `RoomPressure (hPa)`)) +
+  geom_point() +
+  geom_text_repel(aes(label = SampleNumber)) +
+  ylab("Effective Volume of Loop (mL)") + xlab("Room Pressure (hPa)") +
+  theme_bw()
+
+ggplot(veff_estimation, 
+       aes(y = Veff, x = `Room Temperature (degC)`)) +
+  geom_point() +
+  geom_text_repel(aes(label = SampleNumber)) +
+  ylab("Effective Volume of Loop (mL)") + xlab("Room Temperature (degC)") +
   theme_bw()
 
 # Any outliers?
