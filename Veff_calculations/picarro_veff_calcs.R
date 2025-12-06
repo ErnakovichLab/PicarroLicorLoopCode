@@ -5,7 +5,7 @@ library(here)
 #### User settings #############################################################
 # This section contains settings for the user to edit. 
 # File path to the measurments for the effective volume spreadsheet
-resp_spreadsheet_fp <- "~/Downloads/Loop_volume_measurments_Utsa_12_01_2025_Picarro Respiration sheet template.xlsx"
+resp_spreadsheet_fp <- "~/Downloads/Utsa_loop_volume_calculation_2025-12-04-Picarro Respiration.xlsx"
 
 # Data about where the effective volume measurments start
 start_row <- 1 # row of dataframe where measurements start - does not include header rows (e.g. row 3 in spreadsheet = 1 in dataframe)
@@ -56,6 +56,7 @@ ggplot(veff_estimation,
 
 ggplot(veff_estimation, 
        aes(y = Veff, x = `RoomPressure (hPa)`)) +
+  geom_text_repel(aes(label = SampleNumber), position = jitter_settings) +
   geom_point() +
   ylab("Effective Volume of Loop (mL)") + xlab("Room Pressure (hPa)") +
   theme_bw()
@@ -66,6 +67,12 @@ ggplot(veff_estimation,
   ylab("Effective Volume of Loop (mL)") + xlab("Room Temperature (degC)") +
   theme_bw()
 
+ggplot(veff_estimation %>% mutate(LoopOpened = ifelse(SampleNumber <= 9, "No", "Yes")), 
+       aes(y = Veff, x = LoopOpened)) +
+  geom_text_repel(aes(label = SampleNumber)) +
+  geom_point() +
+  ylab("Effective Volume of Loop (mL)") + xlab("Loop Opened between samples") +
+  theme_bw()
 # Any outliers?
 # We will use Z-score detection to identify them; see https://statsandr.com/blog/outliers-detection-in-r/ for 
 # good summary of why/how this is done
@@ -75,8 +82,8 @@ outlier_sample_numbers <- which(!dplyr::between(veff_estimation$z_Veff, left = -
 #### Choose samples to drop, if any #####################################
 # On the basis of your exploration above, are there any samples you'd like to drop
 # from the analysis?
-
-samples_to_drop <- c(outlier_sample_numbers) # We choose which samples we want to drop, if any
+# Remove samples where forgot to open loop
+samples_to_drop <- c(outlier_sample_numbers, 1:9) # We choose which samples we want to drop, if any
 
 veff_estimation_filt <- veff_estimation %>%
   filter(!(SampleNumber %in% samples_to_drop))
@@ -97,6 +104,11 @@ print(veff_stats)
 # Once you are satisfied with your effective volume estimate, edit the template 
 # spreadsheet with veff_stats$mean as the loop volume
 
+# simulate normal distribution
+sim_data <- data.frame(1:nrow(veff_estimation_filt),
+                        sim_data = rnorm(n = nrow(veff_estimation_filt), 
+                                         mean = veff_stats$mean, sd = veff_stats$sd))
+
 # Boxplot
 jitter_settings <- position_jitter(width = 0.4, height = 0, seed = 123)
 ggplot(veff_estimation_filt, 
@@ -114,9 +126,12 @@ ggplot(veff_estimation_filt,
 ggplot(veff_estimation_filt, 
        aes(x = Veff)) +
   geom_density() +
+  geom_density(data = sim_data, aes(x = sim_data), 
+               color = "firebrick", linetype = "dashed") +
   geom_segment(x = veff_stats$mean - veff_stats$se,
                 xend = veff_stats$mean + veff_stats$se,
                y = 0.001, yend = 0.001) +
   geom_vline(xintercept = veff_stats$mean) +
   xlab("Effective Volume of Loop (mL)") +
   theme_bw()
+
