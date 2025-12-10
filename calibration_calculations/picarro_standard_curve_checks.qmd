@@ -1,3 +1,10 @@
+---
+title: "Calibration"
+format: html
+editor: visual
+---
+
+```{r}
 library(tidyverse)
 library(ggrepel)
 library(here)
@@ -258,3 +265,6 @@ write_tsv(calibration_dat, "~/Downloads/picarro_calibration_file.tsv")
 coefficients(CO2_12_ppmpost_std_curve)
 coefficients(CO2_13_ppmpost_std_curve)
 coefficients(CO2_deltapost_std_curve)
+
+```
+
