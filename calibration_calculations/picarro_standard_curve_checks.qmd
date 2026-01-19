@@ -4,10 +4,26 @@ format: html
 editor: visual
 ---
 
-```{r}
+```{r, libraries-settings}
+#| message: false
+#| warning: false
+#| include: false
+knitr::opts_chunk$set(echo = T, eval = T, message = F, warning = F)
+# load libraries
 library(tidyverse)
 library(ggrepel)
 library(here)
+library(lubridate)
+
+# Set ggplot theme
+theme_set(theme_bw())
+```
+
+# Calibration
+
+Goal: To run the code necessary to obtain a slope and offset for calibrating the Picarro
+
+```{r}
 
 #### User settings #############################################################
 # This section contains settings for the user to edit. 
@@ -19,7 +35,7 @@ start_row <- 23 # row of dataframe where measurements start - does not include h
 end_row <- 66 # row of dataframe where measurements end - does not include header rows (e.g. row 23 in spreadsheet = 20 in dataframe)
 exclude_sampletypes <- c("mistake") # the value of "SampleType" column for samples you want to exclude from the analyses
 
-#### Effective Volume Calculation ##############################################
+#### Reading in Data and initial QC ##############################################
 col_types_picarro <- c(rep("text", 2), #sampletype:jar number
                        rep("numeric", 14), #RoomTemperature:EffectiveIsotopicRatio
                        "date", #time last zeroed
@@ -37,9 +53,9 @@ std_curve_raw <- readxl::read_excel(resp_spreadsheet_fp, skip = 1,
                                     na = c("nan", "#VALUE!", "#DIV/0!", "#REF!"))
 
 std_curve_estimation <- std_curve_raw %>%
-  # Clean and filter out unnessesary columns and rows
+  # Clean and filter out columns and rows that are unnecessary for calibration calculations
   slice(start_row:end_row) %>%
-  filter(!(SampleType %in% exclude_sampletypes)) %>% # remove rows where mistakes were made
+  filter(!(SampleType %in% exclude_sampletypes)) %>% # remove rows where mistakes were made and noted in the sheet
   select(`Jar Number`,
          `Volume of sample or standard (mL of gas measured)`,
          `Room Temperature (degC)`, `RoomPressure (hPa)`,
@@ -67,13 +83,15 @@ std_curve_estimation <- std_curve_raw %>%
          `Fractional contribution of Sample to loop 'pool' (f_a)`,
          contains("Uncalibrated"),
          contains("True")) %>%
-  filter(!is.na(`Time of start of measurement (write at least every 5 samples)`)) %>%
+  filter(!is.na(`Time of start of measurement (write at least every 5 samples)`)) %>% # remove rows where time of sample measurement was not written in the sheet
+  # Create derived columns that calculate what readings should be showing after sample injection under perfectly calibrated conditions
   mutate(SampleNumber = row_number(),
          ppm_co2_total = `Uncalibrated apparent total CO2 in sample (umol)`/`Volume of sample or standard (mL of gas measured)`,
          true_post_concentration12co2 = `Mean of pre 12CO2_dry concentration (PPM)` + ((`12CO2-PPM`*`Volume of sample or standard (mL of gas measured)`)/(`Effective Volume of Loop (mL)` + `Volume of sample or standard (mL of gas measured)`)),
          true_post_concentration13co2 = `Mean of pre-13CO2 concentration (PPM)` + ((`13CO2-PPM`*`Volume of sample or standard (mL of gas measured)`)/(`Effective Volume of Loop (mL)` + `Volume of sample or standard (mL of gas measured)`)),
          true_post_delta_value = (`Fractional contribution of Sample to loop 'pool' (f_a)`*`Delta value of the gas`)+(`Mean of pre delta iCO2 Raw (permil)`*(1-`Fractional contribution of Sample to loop 'pool' (f_a)`))) %>%
   group_by(`Jar Number`) %>%
+  # Calculate outlier status based on normal distribution assumptions
   mutate(scaled_uncal_13co2_ppm = scale(`Uncalibrated apparent 13CO2 concentration (ppm)`),
           scaled_uncal_12co2_ppm = scale(`Uncalibrated apparent 12CO2 concentration (ppm)`),
           scaled_uncal_delta = scale(`Uncalibrated apparent delta value of sample (permil)`),
@@ -81,12 +99,17 @@ std_curve_estimation <- std_curve_raw %>%
           outlier_12co2 = !dplyr::between(scaled_uncal_12co2_ppm, left = -2, right = 2),
           outlier_delta = !dplyr::between(scaled_uncal_delta, left = -2, right = 2)) %>%
   ungroup()
+```
 
-#### Quality Control of Samples #####################################
-# Use the plots in this section to perform quality control on your data.
-# Are there any patterns in estimates related to injection time, sample volume, 
+Quality Control of Samples
+Use the plots in this section to perform quality control on your data.
+ - Are there any patterns in estimates related to injection time, sample volume?
+ - 
+```{r}
+samples_to_filter <-  c(32,11,6, 19)
+samples_to_filter <- c()
 std_curve_outlier_removal <- std_curve_estimation %>%
-  filter(!(SampleNumber %in% c(32,11,6, 19))) #%>%
+  filter(!(SampleNumber %in% samples_to_filter)) #%>%
   #filter(`Volume of sample or standard (mL of gas measured)` > 1)
 
 ggplot(std_curve_outlier_removal, 
