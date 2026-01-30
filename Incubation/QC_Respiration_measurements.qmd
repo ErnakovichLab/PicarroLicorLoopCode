@@ -28,10 +28,13 @@ This script provides a guide for how to perform QA/QC on respiration measurement
 ```{r user-defined-variables}
 
 # location of sample metadata sheet
-fp_metadata <- "/examples/incubation/Sample Tracking.xlsx"
+fp_metadata <- "/examples/incubation/26SEI_JarLabelingandLoadingSpreadsheet.xlsx"
 
 # location of sample respiration spreadsheets
-fp_licor <- "examples/incubation/licor_data"
+fp_licor <- "~/Downloads/licor_data"
+
+# location of sample respiration spreadsheets
+fp_picarro <- "~/Downloads/OneDrive_1_1-20-2026/" # temporary; eventually move to examples
 ```
 
 ```{r useful-constants-functions}
@@ -52,12 +55,6 @@ isnt_out_tukey <- function(x, k = 1.5, na.rm = TRUE) {
 **Instructions for users**: Download the "\*-Respiration.xlsx" spreadsheet to a folder called `data/licor/`. All respiration spreadsheets must follow the naming convention `YYYY-MM-DD_Respiration.xlsx`
 
 ```{r read-resp-data}
-# Reading in respiration information
-Resp_files <- list.files(here(fp_licor), pattern = "-Respiration.xlsx", full.names = T)
-
-gsub("(.{1,})(-Respiration.xlsx)","\\1", basename(Resp_files))
-
-
 
 #' Takes a folder containng either Picarro or Licor-style respiration templates
 #' and reads them in, does baic cleaning functions on them. 
@@ -70,7 +67,9 @@ gsub("(.{1,})(-Respiration.xlsx)","\\1", basename(Resp_files))
 read_respiration_files <- function(resp_file_path_licor = NULL,
                                    resp_file_path_picarro = NULL, 
                                    sample_id_column = "Jar Number",
-                                   incubation_start=NULL) {
+                                   incubation_start=NULL,
+                                   file_pattern = ".xlsx") {
+  
   # Dependencies
   library(tidyverse)
   library(lubridate)
@@ -79,9 +78,14 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
   # Constants
   PSI_to_atm <- 0.06804596
   
+  # Return list
+  return_list <- NA
+  
   # Testing
-  resp_file_path_licor = NULL
-  resp_file_path_picarro = NULL
+  # resp_file_path_licor = "~/Downloads/licor_data"
+  # resp_file_path_picarro = "~/Downloads/OneDrive_1_1-20-2026"
+  # incubation_start <- "2026-01-09 12:00:00" 
+  # file_pattern = ".xlsx"
   # Check arguments for validity and warn user about states  
   stopifnot((!is.null(resp_file_path_licor) | !is.null(resp_file_path_picarro)))
   
@@ -89,53 +93,78 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
   # Initial read-in
   if(!is.null(resp_file_path_licor)) {
     Resp_files <- list.files(here(resp_file_path_licor),
-                             pattern = "-Respiration.xlsx", full.names = T)
+                             pattern = file_pattern, full.names = T)
     
     col_types_licor <- c(rep("text", 2), #SampleType:JarNumber
                          rep("numeric", 5), #RoomTemperature:ConcentrationOfStandard
-                         "date", # Time last zeroed
+                         "date", # Time last flushed
                          rep("text", 3), # Comments, id, si.no
                          "date", # timestamp
                          rep("numeric", 4), # mean-pre:Est Conc
                          "text", # Remarks
                          rep("numeric", 10), #:effective volume of loop:True amount of CO2
-                       "guess","guess", "guess") # standard curve calcs
+                       "guess","guess","guess","guess") # standard curve calcs
     
-    resp_raw_licor <- map2_dfr(Resp_files, 
+    resp_raw_licor <- map_dfr(Resp_files, 
                                ~readxl::read_excel(.x,sheet = 1,
                                                    col_types = col_types_licor,
                                                    na = c("nan", "#VALUE!", "#DIV/0!"))) %>% 
       filter(!is.na(SampleType)) %>%
-      select(SampleType:`True amount of CO2 (uMol)`) 
+      select(SampleType:`True amount of CO2 (uMol)`) %>%
+      mutate(MeasurementInstrument = "Licor")
     
-    # HANNAH start here - change names so that licor and picarro respiration sheets have same names.
-      
-    
+    # Change names to match variables between licor and picarro
+    resp_raw_licor <- resp_raw_licor %>%
+      mutate(`TotalCO2 (ppm)` = `True amount of CO2 (uMol)`/ `Moles of Air in sample`) %>%
+      rename(`Concentration of Standard Curve CO2 Gas (ppm)` = `Concentration of Standard Curve Gas (ppm)`,
+             `TotalCO2 (uMol)` = `True amount of CO2 (uMol)`) 
   }
   
   if(!is.null(resp_file_path_picarro)) {
     Resp_files <- list.files(here(resp_file_path_picarro),
-                             pattern = "-Respiration.xlsx", full.names = T)
+                             pattern = file_pattern, full.names = T)
     
     col_types_picarro <- c(rep("text", 2), #sampletype:jar number
-                         rep("numeric", 14), #RoomTemperature:EffectiveIsotopicRatio
-                         "date", #time last zeroed
-                         rep("text", 1), # comments
-                         "date", # Date
-                         "text", # time of start of measurments
-                         rep("numeric", 8), #Mean of pre-12CO2:MeanH2O%post 
-                         "text", # Remarks 
-                         rep("numeric", 23), # effective volume of loop:TrueDelta permil
-                       rep("guess", 9)) # regression calculations
+                       rep("numeric", 16), #RoomTemperature:EffectiveIsotopicRatio
+                       "date", #date last flushed
+                       "date", #time last flushed
+                       rep("text", 1), # comments
+                       "date", # Date
+                       "date", # time of start of measurements
+                       rep("numeric", 8), #Mean of pre-12CO2:MeanH2O%post 
+                       "text", # Remarks 
+                       rep("numeric", 32), # effective volume of loop:TrueDelta permil
+                       rep("guess", 12)) # regression calculations
+    readxl::read_excel(Resp_files[2], sheet = 1, skip = 1,
+                                                   col_types = col_types_picarro,
+                                                   na = c("nan", "#VALUE!", "#DIV/0!", "#REF!"))
     
     # Read in data
-    resp_raw_picarro <- map2_dfr(Resp_files, 
-                               ~readxl::read_excel(.x,sheet = 1, skip = 1,
+    resp_raw_picarro <- map_dfr(Resp_files, 
+                               ~readxl::read_excel(., sheet = 1, skip = 1,
                                                    col_types = col_types_picarro,
-                                                   na = c("nan", "#VALUE!", "#DIV/0!"))) %>% 
+                                                   na = c("nan", "#VALUE!", "#DIV/0!", "#REF!"))) %>% 
       filter(!is.na(SampleType)) %>%
-      select(SampleType:`True delta (permil)`) 
-        # HANNAH start here - change names so that licor and picarro respiration sheets have same names.
+      select(SampleType:`True delta iCO2 (permil)`) %>%
+      mutate(MeasurementInstrument = "picarro")
+    
+    # Fix timestamps for measurement and flush time
+    date(resp_raw_picarro$`Time of start of measurement`) <- resp_raw_picarro$Date 
+    resp_raw_picarro$`Time of start of measurement` <- force_tz(resp_raw_picarro$`Time of start of measurement`, "America/New_York") 
+    
+    date(resp_raw_picarro$`Time Incubation Jar was Last Flushed (Leave blank for standard curve)`) <- resp_raw_picarro$`Date Incubation Jar was Last Flushed (Leave blank for standard curve)` 
+    resp_raw_picarro$`Time Incubation Jar was Last Flushed (Leave blank for standard curve)` <- force_tz(resp_raw_picarro$`Time Incubation Jar was Last Flushed (Leave blank for standard curve)`, "America/New_York") 
+    
+    # Create columns for total CH4 and CO2
+    resp_raw_picarro <- resp_raw_picarro %>% 
+      mutate(`atom%12CO2 based on delta` = 1 - `Uncalibrated apparent atom% 13CO2 based on delta value`,
+             `atom%12CH4 based on delta` = 1- `Uncalibrated apparent atom% 13CH4 based on delta value`,
+             `TotalCO2 (ppm)` = `Uncalibrated apparent 12CO2 concentration (ppm)` / `atom%12CO2 based on delta`,
+             `TotalCH4 (ppm)` = `Uncalibrated apparent 12CH4 concentration (ppm)` / `atom%12CH4 based on delta`,
+             `TotalCO2 (uMol)` = `TotalCO2 (ppm)` * `Moles of Air in sample`,
+             `TotalCH4 (uMol)` = `TotalCH4 (ppm)` * `Moles of Air in sample`) %>%
+      # Create one timestamp
+      rename(Timestamp = `Time of start of measurement`)
   }
   
   
@@ -144,28 +173,49 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
   # combine data together into one dataframe
   # Create the incubation day and time columns, use either the user-specified beginning datetime or the minimum date
   
+  if(exists("resp_raw_licor") & exists("resp_raw_picarro")) {
+    resp_raw <- bind_rows(resp_raw_licor, resp_raw_picarro)
+    return_list <- list(licor_resp_raw = resp_raw_licor,
+                        picarro_resp_raw = resp_raw_picarro)
+  } else if(exists("resp_raw_licor")) {
+    resp_raw <- resp_raw_licor
+    return_list <- list(licor_resp_raw = resp_raw_licor,
+                    picarro_resp_raw = NA)
+  } else if(exists("resp_raw_picarro")) {
+      resp_raw <- resp_raw_picarro
+      return_list <- list(licor_resp_raw = NA,
+                    picarro_resp_raw = resp_raw_picarro)
+  }
   
-  resp_raw_picarro
   
-  resp_raw <- resp_raw %>%  
-    mutate(Date = as_date(Timestamp),
-    IncubationDay = Date - as_date("2024-10-31 21:57:00"),
-    IncubationTime = Timestamp - as_datetime("2024-10-31 22:30:00"),
-    TimeSinceZerod = Timestamp - `Time Last Zeroed`,
-    `Jar Number` = as.character(`Jar Number`),
-    JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>% # multiply by atm conversion
-  mutate(SampleType = factor(SampleType),
-         `Jar Number` = factor(as.character(`Jar Number`)))
+  # Calculate durations and jar pressures
+    resp_raw <- resp_raw %>%  
+      mutate(Date = as_date(Timestamp),
+             IncubationDay = Date - as_date(incubation_start),
+             IncubationTime = Timestamp - as_datetime(incubation_start, tz = "America/New_York"),
+             TimeSinceZerod = Timestamp - `Time Incubation Jar was Last Flushed (Leave blank for standard curve)`,
+             JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>% # multiply by atm conversion
+      mutate(SampleType = factor(SampleType),
+             `Jar Number` = factor(as.character(`Jar Number`)))
   
-  
+  # Return statement
+  return_list$resp_raw <- resp_raw
+  return(return_list)  
 }
+
+
+resp_dat_raw <- read_respiration_files(
+  resp_file_path_licor = "~/Downloads/licor_data",
+  resp_file_path_picarro = "~/Downloads/OneDrive_1_1-20-2026",
+  incubation_start <- "2026-01-09 12:00:00",
+  file_pattern = ".xlsx")
 
 ```
 
 ```{r read-sample-data}
 # Reading in sample information
 
-jar_info_raw <- readxl::read_excel(here("data/Sample Tracking.xlsx"), sheet = 1, na = c("nan", "#VALUE!", "#DIV/0!")) %>%
+jar_info_raw <- readxl::read_excel(here(fp_metadata), sheet = 8, na = c("nan", "#VALUE!", "#DIV/0!")) %>%
   select(3:15)
 
 jar_mass <- jar_info_raw %>%
