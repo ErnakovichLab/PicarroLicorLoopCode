@@ -274,7 +274,7 @@ Next we need to calculate the respiration rates. In brief this means we need to:
 
 ```{r, respiration-calculations}
 
-samples_resp <- resp_dat_raw$picarro_resp_raw %>%
+samples_resp <- resp_dat_raw$resp_raw %>%
   filter(SampleType == "Sample") %>%
   # Convert into a per-gram basis, based on Jar number
   left_join(jar_info, by = c("Jar Number" = "SampleID")) %>%
@@ -304,12 +304,18 @@ samples_resp <- resp_dat_raw$picarro_resp_raw %>%
 
 1) Any samples NA? figure out why before moving on:
 ```{r}
-rate_cols <- c("ug_C_CO2_per_g_soil_per_hour", "ug_C_CO2_per_g_soil_per_day",
-         "ug_C_CH4_per_g_soil_per_hour","ug_C_CH4_per_g_soil_per_day") 
+rate_cols <- c("ug_C_CO2_per_g_soil_per_hour", "ug_C_CO2_per_g_soil_per_day") 
 
+picarro_rate_cols <- c("ug_C_CH4_per_g_soil_per_hour","ug_C_CH4_per_g_soil_per_day") 
 
+# Check co2 measurements
 samples_resp %>%
   filter(if_any(all_of(rate_cols), ~is.na(.x))) %>% head()
+
+# Check picarro-only measurements
+samples_resp %>%
+  filter(MeasurementInstrument == "picarro") %>%
+  filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% head()
 
 ```
 
@@ -347,6 +353,57 @@ samples_resp %>%
   geom_point(position = "jitter") +
   geom_text_repel(aes(label = `Jar Number`)) +
   facet_wrap(~Rates, scales = "free_y")
+
+```
+
+5) Comparison between instruments
+```{r}
+
+licor_picarro_comparison <- samples_resp %>%
+   group_by(`Jar Number`, Date) %>%
+   add_tally(name = "num_obs") %>%
+   ungroup() %>%
+   filter(num_obs > 1) %>% arrange(Date, `Jar Number`) %>% 
+  # Filter only jars that are in list of jars
+  filter(`Jar Number` %in% all_jars$SampleID) %>%
+  select(`Jar Number`, Date, MeasurementInstrument,
+         ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
+         ug_C_CO2_per_g_soil_per_day) %>%
+  pivot_wider(names_from = MeasurementInstrument, 
+              names_glue = "{MeasurementInstrument}_{.value}",
+              values_from = c(ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
+         ug_C_CO2_per_g_soil_per_day))
+
+headspace_CO2_comp <- lm(picarro_ug_C_CO2_in_headspace ~ Licor_ug_C_CO2_in_headspace, data = licor_picarro_comparison)
+summary(headspace_CO2_comp)
+
+hrly_CO2_comp <- lm(picarro_ug_C_CO2_per_g_soil_per_hour ~ Licor_ug_C_CO2_per_g_soil_per_hour, 
+                    data = licor_picarro_comparison)
+summary(hrly_CO2_comp)
+
+ggplot(licor_picarro_comparison, 
+       aes(x = Licor_ug_C_CO2_in_headspace, y = picarro_ug_C_CO2_in_headspace)) +
+  geom_point(aes(color = as.factor(Date))) + 
+  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_abline(slope = headspace_CO2_comp$coefficients[[2]],
+              intercept = headspace_CO2_comp$coefficients[[1]]) +
+  annotate(geom = "text", x  = -Inf, y = Inf, hjust = -0.10, vjust = 1.1,
+           label = paste("y = ", round(headspace_CO2_comp$coefficients[[2]], digits = 2),"x + ",
+                        round(headspace_CO2_comp$coefficients[[1]], digits = 2), "\n",
+                        "R2 = ", round(summary(headspace_CO2_comp)$r.squared, digits = 4))
+           )
+
+ggplot(licor_picarro_comparison, 
+       aes(x = Licor_ug_C_CO2_per_g_soil_per_hour, y = picarro_ug_C_CO2_per_g_soil_per_hour)) +
+  geom_point(aes(color = as.factor(Date))) + 
+  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_abline(slope = hrly_CO2_comp$coefficients[[2]],
+              intercept = hrly_CO2_comp$coefficients[[1]]) +
+  annotate(geom = "text", x  = -Inf, y = Inf, hjust = -0.10, vjust = 1.1,
+           label = paste("y = ", round(hrly_CO2_comp$coefficients[[2]], digits = 2),"x + ",
+                        round(hrly_CO2_comp$coefficients[[1]], digits = 2), "\n",
+                        "R2 = ", round(summary(hrly_CO2_comp)$r.squared, digits = 4))
+           )
 
 ```
 
@@ -633,4 +690,4 @@ site_coal_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
 
 ```
 
-
+# Once QC is finished, write out the final data
