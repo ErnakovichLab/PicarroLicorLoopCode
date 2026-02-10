@@ -38,7 +38,12 @@ preinc_start <- preinc_start_raw %>%
   mutate(`Gas Flush Time Ended` = as_datetime(as.POSIXct(`Gas Flush Time Ended`, 
                                                          format = "%m/%d/%Y %H:%M",
                                                          tz = "America/New_York"))) %>%
-  filter(`Which Flush is this?` == "Pre-Inc Start") %>% 
+  filter(`Which Flush is this?` == "Pre-Inc Start") %>%
+  # Filter spilled jars where incubation start is different than flush
+  filter_out(`Jar ID` == 286 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  filter_out(`Jar ID` == 305 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  filter_out(`Jar ID` == 325 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  filter_out(`Jar ID` == 285 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
   select(`Jar ID`, `Gas Flush Time Ended`)
 
 # Combine jar data into one dataframe 
