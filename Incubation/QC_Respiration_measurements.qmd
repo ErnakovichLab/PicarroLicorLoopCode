@@ -191,21 +191,21 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                                whichSheet = 1,
                                data_range = NULL
                                ) {
-    if(!is.null(data_range)) {
-      gs_dat <- quietly(map_dfr(Resp_files,
-            ~readxl::read_excel(.x, sheet = whichSheet,
-                                col_types = col_types,
-                                range = data_range,
-                                na = c("nan", "#VALUE!", "#DIV/0!"))))
-    } else {
-      gs_dat <- quietly(map_dfr(Resp_files,
-            ~readxl::read_excel(.x, sheet = whichSheet,
-                                col_types = col_types,
-                                na = c("nan", "#VALUE!", "#DIV/0!"))))
-    }
-    
-    return(gs_dat)
-    }
+    # if(!is.null(data_range)) {
+    #   gs_dat <- quietly(map_dfr(Resp_files,
+    #         ~readxl::read_excel(.x, sheet = whichSheet,
+    #                             col_types = col_types,
+    #                             range = data_range,
+    #                             na = c("nan", "#VALUE!", "#DIV/0!"))))
+    # } else {
+    #   gs_dat <- quietly(map_dfr(Resp_files,
+    #         ~readxl::read_excel(.x, sheet = whichSheet,
+    #                             col_types = col_types,
+    #                             na = c("nan", "#VALUE!", "#DIV/0!"))))
+    # }
+    # 
+    # return(gs_dat)
+    # }
   
   
   
@@ -224,9 +224,10 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                          rep("numeric", 10), #:effective volume of loop:True amount of CO2
                        "guess","guess","guess","guess") # standard curve calcs
     
-    resp_raw_licor <- read_in_gas_data(file_list = Resp_files,
-                                       col_types = col_types_licor
-                                       )
+    resp_raw_licor <- map_dfr(Resp_files, 
+                               ~readxl::read_excel(.x,sheet = 1,
+                                                   col_types = col_types_licor,
+                                                   na = c("nan", "#VALUE!", "#DIV/0!"))) 
     resp_raw_licor <- resp_raw_licor %>%
       filter(!is.na(SampleType)) %>%
       select(SampleType:`True amount of CO2 (uMol)`) %>%
@@ -274,7 +275,8 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                                ~readxl::read_excel(., sheet = 1,
                                                    col_types = col_types_picarro,
                                                    range = cell_limits(c(2,1), c(NA,76)),
-                                                   na = c("nan", "#VALUE!", "#DIV/0!", "#REF!"))) %>% 
+                                                   na = c("nan", "#VALUE!", "#DIV/0!", "#REF!", "NA",
+                                                          "Invalid"))) %>% 
       filter(!is.na(SampleType)) %>%
       select(SampleType:`True delta iCO2 (permil)`) %>%
       mutate(MeasurementInstrument = "picarro")
