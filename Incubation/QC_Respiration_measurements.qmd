@@ -58,6 +58,8 @@ ernakovich2017_fp <- here("examples/incubation/Ernakovich2017_data/Ernakovich_20
 # Define Constants
 GasConstant_R <- 0.0821 # L*atm*K^-1*mol^-1
 PSI_to_atm <- 0.06804596 # psi to atm
+PSI_to_hPa <- 68.9476 # psi to hpa
+hPa_to_atm <- 0.0009869233 # hpa to atm 
 
 # Outlier function
 isnt_out_tukey <- function(x, k = 1.5, na.rm = TRUE) {
@@ -149,7 +151,7 @@ ernakovich_2017 <- left_join(ernakovich_2017_CO2, ernakovich_2017_CH4, by = c("D
 
 Below we create a function for reading in respiration data and doing basic reformatting that allows the picarro and licor respiration measurements to be combined. These include: 1. Converting picarro readings from 12-C and 13-C into total C 2. Making sure all the columns have the right formats in R 3. Ensuring the dates and times are correctly formatted, and in the right time zone 4. Converting licor and picarro information into each other with a scaling factor. *Does not do this currently - but will eventually*
 
-```{r read-resp-data}
+```{r, read-resp-data}
 read_respiration_files <- function(resp_file_path_licor = NULL,
                                    resp_file_path_picarro = NULL, 
                                    sample_id_column = "Jar Number",
@@ -184,31 +186,6 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
   # Check arguments for validity and warn user about states  
   stopifnot((!is.null(resp_file_path_licor) | !is.null(resp_file_path_picarro)))
   
-  # Initial read-in
-  # Define function to read files into one dataframe
-  read_in_gas_data <- function(file_list = Resp_files,
-                               col_types = coltypes,
-                               whichSheet = 1,
-                               data_range = NULL
-                               ) {
-    # if(!is.null(data_range)) {
-    #   gs_dat <- quietly(map_dfr(Resp_files,
-    #         ~readxl::read_excel(.x, sheet = whichSheet,
-    #                             col_types = col_types,
-    #                             range = data_range,
-    #                             na = c("nan", "#VALUE!", "#DIV/0!"))))
-    # } else {
-    #   gs_dat <- quietly(map_dfr(Resp_files,
-    #         ~readxl::read_excel(.x, sheet = whichSheet,
-    #                             col_types = col_types,
-    #                             na = c("nan", "#VALUE!", "#DIV/0!"))))
-    # }
-    # 
-    # return(gs_dat)
-    # }
-  
-  
-  
   if(!is_null(resp_file_path_licor)) {
     # print("here") # Testing
     Resp_files <- list.files(here(resp_file_path_licor),
@@ -227,7 +204,8 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
     resp_raw_licor <- map_dfr(Resp_files, 
                                ~readxl::read_excel(.x,sheet = 1,
                                                    col_types = col_types_licor,
-                                                   na = c("nan", "#VALUE!", "#DIV/0!"))) 
+                                                   na = c("nan", "#VALUE!", "#DIV/0!")) %>%
+                                rename_with(.fn = ~ gsub("\\(psi\\)", "\\(psig\\)", .)))
     resp_raw_licor <- resp_raw_licor %>%
       filter(!is.na(SampleType)) %>%
       select(SampleType:`True amount of CO2 (uMol)`) %>%
@@ -240,7 +218,9 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
       mutate(`TotalCO2 (ppm)` = `True amount of CO2 (uMol)`/ `Moles of Air in sample`) %>%
       rename(`Concentration of Standard Curve CO2 Gas (ppm)` = `Concentration of Standard Curve Gas (ppm)`,
              `TotalCO2 (uMol)` = `True amount of CO2 (uMol)`) %>%
-      mutate(JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>%
+      # Calculate Jar pressure
+      mutate(AbsoluteJarPressure_hPa = `RoomPressure (hPa)` + `Jar pressure before sampling (psig)`*PSI_to_hPa,
+             AbsoluteJarPressure_atm = AbsoluteJarPressure_hPa * hPa_to_atm) %>%
       # calcualte durations:
       left_join(incubation_start, by = c("Jar Number")) %>%
       mutate(Date = as_date(Timestamp),
@@ -276,7 +256,8 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                                                    col_types = col_types_picarro,
                                                    range = cell_limits(c(2,1), c(NA,76)),
                                                    na = c("nan", "#VALUE!", "#DIV/0!", "#REF!", "NA",
-                                                          "Invalid"))) %>% 
+                                                          "Invalid")) %>%
+                                rename_with(.fn = ~ gsub("\\(psi\\)", "\\(psig\\)", .))) %>% 
       filter(!is.na(SampleType)) %>%
       select(SampleType:`True delta iCO2 (permil)`) %>%
       mutate(MeasurementInstrument = "picarro")
@@ -299,7 +280,8 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
       # Create one timestamp
       rename(Timestamp = `Time of start of measurement`) %>%
       # convert jar pressure to atm:
-      mutate(JarPressure_atm = `Jar pressure before sampling (psi)`*PSI_to_atm) %>%
+      mutate(AbsoluteJarPressure_hPa = `RoomPressure (hPa)` + `Jar pressure before sampling (psig)`*PSI_to_hPa,
+             AbsoluteJarPressure_atm = AbsoluteJarPressure_hPa * hPa_to_atm) %>%
       # calculate durations
       left_join(incubation_start, by = c("Jar Number")) %>%
       mutate(Date = as_date(Timestamp),
@@ -343,7 +325,7 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
 
 ```
 
-Run the function to create the input.
+Run the function to load the input.
 
 ```{r}
 resp_dat_raw <- read_respiration_files(
@@ -354,12 +336,15 @@ resp_dat_raw <- read_respiration_files(
 
 ```
 
+**STOP:** If there are any warnings or errors, check the spreadsheets you are reading in before proceeding.  
+
 ### Calculate Respirations
 
 Next we need to calculate the respiration rates. In brief this means we need to:
 
-1.  Correct the amount of gas measured for the volume of air in the headspace (which varies between jars)
-2.  Calculate the dry soil weight in each jar (based on the gravimetric water content or gravimetric soil content (GSC_perc) )
+1.  Correct the amount of gas measured for the volume of air in the headspace (which can vary between jars - particularly if you use different brands)
+     - calculate convert the jar pressure from PSIG (the guage air pressure) to atm
+2.  Calculate the dry soil weight in each jar (based on the gravimetric water content or gravimetric soil content (`GSC_perc`) )
 3.  Convert the total gas produced in micromoles to micrograms (to align with conventional units)
 4.  Divide the amount of gas produced by the hours and days since the jars have been flushed to produce and hourly and daily rate
 
@@ -370,11 +355,9 @@ samples_resp <- resp_dat_raw$resp_raw %>%
   filter(SampleType == "Sample") %>%
   # Convert into a per-gram basis, based on Jar number
   left_join(jar_info, by = c("Jar Number" = "SampleID")) %>%
-  # If jar pressure is 0 PSI make it a very small number rather than zero:
-  mutate(`Jar pressure before sampling (psi)` = ifelse(`Jar pressure before sampling (psi)` == 0, 0.001, `Jar pressure before sampling (psi)`)) %>%
   mutate(jar_headspace_mL = HeadspaceVolume, # need to correct for specimen cup volume
          soil_weight_dry = `Mass of Soil(g Lab Scale)` * (GSC_Perc/100),
-         MolAir_headspace = (1/1000)*(jar_headspace_mL * JarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
+         MolAir_headspace = (1/1000)*(jar_headspace_mL * AbsoluteJarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
          umol_CO2_in_headspace = jar_headspace_mL * (`TotalCO2 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
          umol_CH4_in_headspace = jar_headspace_mL * (`TotalCH4 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
          umol_CO2_per_molAir = umol_CO2_in_headspace/MolAir_headspace,
@@ -402,6 +385,7 @@ picarro_rate_cols <- c("ug_C_CH4_per_g_soil_per_hour","ug_C_CH4_per_g_soil_per_d
 
 # Check co2 measurements
 samples_resp %>%
+  select(SampleType, `Jar Number`, MeasurementInstrument, everything()) %>%
   filter(if_any(all_of(rate_cols), ~is.na(.x))) %>% head()
 
 # Check picarro-only measurements
