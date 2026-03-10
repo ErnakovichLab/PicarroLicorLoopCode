@@ -8,7 +8,7 @@ library(here)
 # Incubation jar file path and columns:
 inc_jar_fp <- "~/Downloads/26SEI_JarLabelingandLoadingSpreadsheet.xlsx"
 
-inc_start_times <- "~/Downloads/GasMeasurementTracking_SEI26(Flush 1).csv"
+inc_start_times <- "~/Downloads/GasMeasurementTracking_SEI26.xlsx"
 
 # Read in Healy and ice cut data:
 healy_jars_raw <- readxl::read_excel(path = inc_jar_fp, 
@@ -32,18 +32,27 @@ ice_cut_jars <- ice_cut_jars_raw %>%
          `Mass of Soil and Specimen Cup(g Lab Scale)` = as.numeric(`Mass of Soil and Specimen Cup(g Lab Scale)`))
 
 # read in flush times for pre-incubation start
-preinc_start_raw <- read_csv(file = inc_start_times) 
+preinc_start_IC_raw <- readxl::read_excel(path = inc_start_times, 
+                                       sheet = c(1), skip =1, na = c("", "NA"))
+
+preinc_start_H_raw <- readxl::read_excel(path = inc_start_times, 
+                                          sheet = c(2), skip =1, na = c("", "NA"))
+
+preinc_start_raw <- bind_rows(preinc_start_H_raw, preinc_start_IC_raw)
 
 preinc_start <- preinc_start_raw %>% 
-  mutate(`Gas Flush Time Ended` = as_datetime(as.POSIXct(`Gas Flush Time Ended`, 
+  mutate(`Gas Flush Time Ended` = as_datetime(as.POSIXct(`PreIncubation Started (Time after 1st N2 flush)` ,
                                                          format = "%m/%d/%Y %H:%M",
                                                          tz = "America/New_York"))) %>%
-  filter(`Which Flush is this?` == "Pre-Inc Start") %>%
-  # Filter spilled jars where incubation start is different than flush
-  filter_out(`Jar ID` == 286 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
-  filter_out(`Jar ID` == 305 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
-  filter_out(`Jar ID` == 325 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
-  filter_out(`Jar ID` == 285 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  # mutate(`Gas Flush Time Ended` = as_datetime(as.POSIXct(`Gas Flush Time Ended`, 
+  #                                                        format = "%m/%d/%Y %H:%M",
+  #                                                        tz = "America/New_York"))) %>%
+  # filter(`Which Flush is this?` == "Pre-Inc Start") %>%
+  # # Filter spilled jars where incubation start is different than flush
+  # filter_out(`Jar ID` == 286 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  # filter_out(`Jar ID` == 305 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  # filter_out(`Jar ID` == 325 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
+  # filter_out(`Jar ID` == 285 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
   select(`Jar ID`, `Gas Flush Time Ended`)
 
 # Combine jar data into one dataframe 
@@ -54,8 +63,9 @@ all_jars <- bind_rows(healy_jars, ice_cut_jars) %>%
   #ball <- 249.253
   #uline <- 250.29
   # Add in preincubation start times
-  left_join(preinc_start, by = c("JarNumber" = "Jar ID")) %>%
+  left_join(preinc_start, by = c("SampleID" = "Jar ID")) %>%
   rename(PreIncubationStart = `Gas Flush Time Ended`) %>%
+  mutate(PreIncubationStart = as.character(PreIncubationStart)) %>%
   separate(SampleID, into = c("SiteAbbr", "GroupAbbr", "JarIDNum"), sep = "-", remove = F) %>%
   # Taken from the SoilEcologySampleWeights spreadsheet
   mutate(GSC_Perc = case_when(SiteAbbr == "H" & `Permafrost or Coalescence?` == "Coal" ~ (23.77 + 35.33)/2,
