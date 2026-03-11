@@ -423,15 +423,6 @@ If necessary, find the date of the timestamp for the measurement and check the c
 
 ```{r}
 samples_resp %>%
-  group_by(`Jar Number`, Date) %>%
-  add_tally(name = "num_obs") %>%
-  ungroup() %>%
-  filter(num_obs > 1) %>% 
-  select(SampleType, `Jar Number`, Date, MeasurementInstrument, Timestamp, everything()) %>%
-  arrange(Date, `Jar Number`) %>%
-  View()
-
-samples_resp %>%
   select(`Jar Number`, Date, MeasurementInstrument,
          ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
          ug_C_CO2_per_g_soil_per_day) %>%
@@ -439,9 +430,7 @@ samples_resp %>%
   MeasurementInstrument)) %>%
   dplyr::filter(n > 1L)
 
-# Temporarily filtering out H-A-345 and H-A-342 on 03/02 until their duplications can be resolved
-
-duplicates_to_filter <- c("H-A-345", "H-A-342")
+duplicates_to_filter <- c(NA)
 
 ```
 
@@ -467,7 +456,7 @@ samples_resp %>%
 
 ```{r}
 list_to_filter_out <- c(duplicates_to_filter, 
-                        "H-M-384" # filtering per discussion with Maggie D; outside range
+                        "H-M-384" # filtering per discussion with Maggie D; outside range of standard curve
                         )
 
 licor_picarro_comparison <- samples_resp %>%
