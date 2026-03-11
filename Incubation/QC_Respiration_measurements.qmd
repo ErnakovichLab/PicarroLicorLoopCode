@@ -375,6 +375,13 @@ samples_resp <- resp_dat_raw$resp_raw %>%
 
 ```
 
+Placeholder for future checks where we can compare internal standard values to expected values. 
+
+```{r, internal-standards}
+standard_readings <- resp_dat_raw$resp_raw %>%
+  filter(SampleType == "Internal Standard")
+```
+
 # Basic checks:
 
 1) Any samples NA? figure out why before moving on:
@@ -385,37 +392,59 @@ picarro_rate_cols <- c("ug_C_CH4_per_g_soil_per_hour","ug_C_CH4_per_g_soil_per_d
 
 # Check co2 measurements
 samples_resp %>%
-  select(SampleType, `Jar Number`, MeasurementInstrument, everything()) %>%
-  filter(if_any(all_of(rate_cols), ~is.na(.x))) %>% head()
+  select(SampleType, `Jar Number`, MeasurementInstrument, Timestamp, 
+         all_of(rate_cols), everything()) %>%
+  filter(if_any(all_of(rate_cols), ~is.na(.x))) %>% View()
 
 # Check picarro-only measurements
 samples_resp %>%
   filter(MeasurementInstrument == "picarro") %>%
-  filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% head()
+  select(SampleType, `Jar Number`, MeasurementInstrument, Timestamp, 
+         all_of(picarro_rate_cols), everything()) %>%
+  filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% View()
 
 ```
 
 Common issues:
 
-- Flush date and time are not entered correctly
+- Flush date and time are not entered correctly 
+   - If so, leave a comment in the spreadsheet tagging the person responsible for the measurement. 
 - temperature, pressure, or other necessary variable is missing.
 - soil weights not entered
 - Typo in sample name or number
+- Measurement is impossible (e.g. negative ppm); if so, update data spreasheet on sharepoint with note in comments
 
 If necessary, find the date of the timestamp for the measurement and check the corresponding excel sheet and lab notebook pages. Message the person who took the measurement to verify any uncertainties. 
 
 **Only make changes to the raw spreadsheets if you are certain you know the correct value. And always note your changes in a comment column, with your name or initials and the date.**
 
 2) Check for duplicate observations on the same day. Make sure that all are appropriate
+- appropriate duplicates include jars measured on both picarro and licor. 
 
 ```{r}
 samples_resp %>%
   group_by(`Jar Number`, Date) %>%
   add_tally(name = "num_obs") %>%
   ungroup() %>%
-  filter(num_obs > 1) %>% head()
+  filter(num_obs > 1) %>% 
+  select(SampleType, `Jar Number`, Date, MeasurementInstrument, Timestamp, everything()) %>%
+  arrange(Date, `Jar Number`) %>%
+  View()
+
+samples_resp %>%
+  select(`Jar Number`, Date, MeasurementInstrument,
+         ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
+         ug_C_CO2_per_g_soil_per_day) %>%
+  dplyr::summarise(n = dplyr::n(), .by= c(`Jar Number`, Date,
+  MeasurementInstrument)) %>%
+  dplyr::filter(n > 1L)
+
+# Temporarily filtering out H-A-345 and H-A-342 on 03/02 until their duplications can be resolved
+
+duplicates_to_filter <- c("H-A-345", "H-A-342")
 
 ```
+
 3) Check that the jars that were supposed to be measured were measured. [TBD until checklist spreadsheets exist] 
 
 
@@ -433,9 +462,16 @@ samples_resp %>%
 ```
 
 5) Comparison between instruments
+- we want to make a conversion factor between each of the two instruments, but this also can serve as a good check. 
+- if any samples are wildly off the 1:1 line, go look into the original data sheets and verify it is not an issue with the original data. 
+
 ```{r}
+list_to_filter_out <- c(duplicates_to_filter, 
+                        "H-M-384" # filtering per discussion with Maggie D; outside range
+                        )
 
 licor_picarro_comparison <- samples_resp %>%
+   filter_out(`Jar Number` %in% list_to_filter_out) %>%
    group_by(`Jar Number`, Date) %>%
    add_tally(name = "num_obs") %>%
    ungroup() %>%
@@ -447,8 +483,9 @@ licor_picarro_comparison <- samples_resp %>%
          ug_C_CO2_per_g_soil_per_day) %>%
   pivot_wider(names_from = MeasurementInstrument, 
               names_glue = "{MeasurementInstrument}_{.value}",
-              values_from = c(ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
-         ug_C_CO2_per_g_soil_per_day)) %>%
+              values_from = c(ug_C_CO2_in_headspace,
+                              ug_C_CO2_per_g_soil_per_hour, 
+                              ug_C_CO2_per_g_soil_per_day)) %>%
   mutate(Date = as.factor(Date))
 
 headspace_CO2_comp <- lm(picarro_ug_C_CO2_in_headspace ~ Licor_ug_C_CO2_in_headspace*Date, 
