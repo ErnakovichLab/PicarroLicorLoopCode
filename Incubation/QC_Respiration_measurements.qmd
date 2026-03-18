@@ -95,10 +95,9 @@ jar_info_raw <- read_tsv(file = fp_metadata) %>%
 
 # Extract incubation start times
 jar_incubation_time_info <- jar_info_raw %>%
-  select(SampleID, contains("IncubationStart")) %>%
+  select(JarIDNum, contains("IncubationStart")) %>%
   mutate(PreIncubationStart = force_tz(PreIncubationStart, tz = "America/New_York"),
-         IncubationStart = as_datetime("2026-02-09 12:00:00", tz = "America/New_York")) %>% # temporary until start date is determined added in
-  rename(`Jar Number` = 1)
+         IncubationStart = as_datetime("2026-02-09 12:00:00", tz = "America/New_York")) # temporary until start date is determined added in
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 jar_info <- jar_info_raw %>%
@@ -208,7 +207,18 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                                 rename_with(.fn = ~ gsub("\\(psi\\)", "\\(psig\\)", .)))
     resp_raw_licor <- resp_raw_licor %>%
       filter(!is.na(SampleType)) %>%
-      select(SampleType:`True amount of CO2 (uMol)`) %>%
+      # Modify jar names to get jar id number
+      # When a pattern of word-word-number is detected, extract the number
+      # When zero hyphens are encountered use the number as written
+      # when anything else is encountered use the number as written
+      mutate(JarIDNum = case_when(grepl("(.{1,})-(.{1,})-(\\d{1,3})", 
+                                        `Jar Number`) ~ str_extract(`Jar Number`,
+                                                                                  "(.{1,})-(.{1,})-(\\d{1,3})",
+                                                                                  group = 3),
+                                  str_count(`Jar Number`, "-") == 0 ~ `Jar Number`,
+                                  .default = `Jar Number`)) %>%
+      select(SampleType,JarIDNum, `Jar Number`:`True amount of CO2 (uMol)`) %>%
+      # Add in measurement instrument and fix the timezone of time columns
       mutate(MeasurementInstrument = "Licor",
              `Time Incubation Jar was Last Flushed (Leave blank for standard curve)` = force_tz(`Time Incubation Jar was Last Flushed (Leave blank for standard curve)`, tz = "America/New_York"), 
              Timestamp = as_datetime(Timestamp, tz = "America/New_York")) # need to check that this is correct!
@@ -222,7 +232,7 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
       mutate(AbsoluteJarPressure_hPa = `RoomPressure (hPa)` + `Jar pressure before sampling (psig)`*PSI_to_hPa,
              AbsoluteJarPressure_atm = AbsoluteJarPressure_hPa * hPa_to_atm) %>%
       # calcualte durations:
-      left_join(incubation_start, by = c("Jar Number")) %>%
+      left_join(incubation_start, by = c("JarIDNum")) %>%
       mutate(Date = as_date(Timestamp),
              IncubationDay = Date - as_date(IncubationStart),
              IncubationTime = Timestamp - as_datetime(IncubationStart, tz = "America/New_York"),
@@ -259,7 +269,17 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                                                           "Invalid")) %>%
                                 rename_with(.fn = ~ gsub("\\(psi\\)", "\\(psig\\)", .))) %>% 
       filter(!is.na(SampleType)) %>%
-      select(SampleType:`True delta iCO2 (permil)`) %>%
+      # Modify jar names to get jar id number
+      # When a pattern of word-word-number is detected, extract the number
+      # When zero hyphens are encountered use the number as written
+      # when anything else is encountered use the number as written
+      mutate(JarIDNum = case_when(grepl("(.{1,})-(.{1,})-(\\d{1,3})", 
+                                        `Jar Number`) ~ str_extract(`Jar Number`,
+                                                                    "(.{1,})-(.{1,})-(\\d{1,3})",
+                                                                    group = 3),
+                                  str_count(`Jar Number`, "-") == 0 ~ `Jar Number`,
+                                  .default = `Jar Number`)) %>%
+      select(SampleType, JarIDNum, `Jar Number`:`True delta iCO2 (permil)`) %>%
       mutate(MeasurementInstrument = "picarro")
     
     # Fix timestamps for measurement and flush time
@@ -283,7 +303,7 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
       mutate(AbsoluteJarPressure_hPa = `RoomPressure (hPa)` + `Jar pressure before sampling (psig)`*PSI_to_hPa,
              AbsoluteJarPressure_atm = AbsoluteJarPressure_hPa * hPa_to_atm) %>%
       # calculate durations
-      left_join(incubation_start, by = c("Jar Number")) %>%
+      left_join(incubation_start, by = c("JarIDNum")) %>%
       mutate(Date = as_date(Timestamp),
              IncubationDay = Date - as_date(IncubationStart),
              IncubationTime = Timestamp - as_datetime(IncubationStart, tz = "America/New_York"),
@@ -316,7 +336,8 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
   # Calculate durations and jar pressures
     resp_raw <- resp_raw %>%  
       mutate(SampleType = factor(SampleType),
-             `Jar Number` = factor(as.character(`Jar Number`)))
+             `Jar Number` = factor(as.character(`Jar Number`)),
+             `JarIDNum` = factor(as.character(`JarIDNum`)))
   
   # Return statement
   return_list$resp_raw <- resp_raw
@@ -354,7 +375,7 @@ Next we need to calculate the respiration rates. In brief this means we need to:
 samples_resp <- resp_dat_raw$resp_raw %>%
   filter(SampleType == "Sample") %>%
   # Convert into a per-gram basis, based on Jar number
-  left_join(jar_info, by = c("Jar Number" = "SampleID")) %>%
+  left_join(jar_info, by = c("JarIDNum")) %>%
   mutate(jar_headspace_mL = HeadspaceVolume, # need to correct for specimen cup volume
          soil_weight_dry = `Mass of Soil(g Lab Scale)` * (GSC_Perc/100),
          MolAir_headspace = (1/1000)*(jar_headspace_mL * AbsoluteJarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
@@ -392,14 +413,14 @@ picarro_rate_cols <- c("ug_C_CH4_per_g_soil_per_hour","ug_C_CH4_per_g_soil_per_d
 
 # Check co2 measurements
 samples_resp %>%
-  select(SampleType, `Jar Number`, MeasurementInstrument, Timestamp, 
+  select(SampleType, JarIDNum, MeasurementInstrument, Timestamp, 
          all_of(rate_cols), everything()) %>%
   filter(if_any(all_of(rate_cols), ~is.na(.x))) %>% View()
 
 # Check picarro-only measurements
 samples_resp %>%
   filter(MeasurementInstrument == "picarro") %>%
-  select(SampleType, `Jar Number`, MeasurementInstrument, Timestamp, 
+  select(SampleType, JarIDNum, MeasurementInstrument, Timestamp, 
          all_of(picarro_rate_cols), everything()) %>%
   filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% View()
 
@@ -413,6 +434,7 @@ Common issues:
 - soil weights not entered
 - Typo in sample name or number
 - Measurement is impossible (e.g. negative ppm); if so, update data spreasheet on sharepoint with note in comments
+- equations need to be copied into cells in spreasheet
 
 If necessary, find the date of the timestamp for the measurement and check the corresponding excel sheet and lab notebook pages. Message the person who took the measurement to verify any uncertainties. 
 
@@ -430,7 +452,9 @@ samples_resp %>%
   MeasurementInstrument)) %>%
   dplyr::filter(n > 1L)
 
-duplicates_to_filter <- c(NA)
+# if the above code detects duplicates, choose them to filter; ask 
+# the person who ran the samples which duplicate is the preferred measurement
+duplicates_to_filter <- c("377", "45", "177")
 
 ```
 
@@ -456,18 +480,18 @@ samples_resp %>%
 
 ```{r}
 list_to_filter_out <- c(duplicates_to_filter, 
-                        "H-M-384" # filtering per discussion with Maggie D; outside range of standard curve
+                        "384" # filtering per discussion with Maggie D; outside range of standard curve
                         )
 
 licor_picarro_comparison <- samples_resp %>%
-   filter_out(`Jar Number` %in% list_to_filter_out) %>%
-   group_by(`Jar Number`, Date) %>%
+   filter_out(JarIDNum %in% list_to_filter_out) %>%
+   group_by(JarIDNum, Date) %>%
    add_tally(name = "num_obs") %>%
    ungroup() %>%
-   filter(num_obs > 1) %>% arrange(Date, `Jar Number`) %>% 
+   filter(num_obs > 1) %>% arrange(Date, JarIDNum) %>% 
   # Filter only jars that are in list of jars
-  filter(`Jar Number` %in% jar_info$SampleID) %>%
-  select(`Jar Number`, Date, MeasurementInstrument,
+  filter(JarIDNum %in% jar_info$JarIDNum) %>%
+  select(JarIDNum, Date, MeasurementInstrument,
          ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
          ug_C_CO2_per_g_soil_per_day) %>%
   pivot_wider(names_from = MeasurementInstrument, 
@@ -492,7 +516,7 @@ summary(hrly_CO2_comp)
 ggplot(licor_picarro_comparison, 
        aes(x = Licor_ug_C_CO2_in_headspace, y = picarro_ug_C_CO2_in_headspace)) +
   geom_point(aes(color = Date)) + 
-  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_text_repel(aes(label = `JarIDNum`)) +
   geom_abline(slope = 1,
               intercept = 0, color = "firebrick", linetype = "dashed") +
   geom_abline(slope = headspace_CO2_comp$coefficients[[2]],
@@ -508,7 +532,7 @@ ggplot(licor_picarro_comparison,
 ggplot(licor_picarro_comparison, 
        aes(x = Licor_ug_C_CO2_per_g_soil_per_hour, y = picarro_ug_C_CO2_per_g_soil_per_hour)) +
   geom_point(aes(color = as.factor(Date))) + 
-  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_text_repel(aes(label = `JarIDNum`)) +
   geom_abline(slope = hrly_CO2_comp$coefficients[[2]],
               intercept = hrly_CO2_comp$coefficients[[1]]) +
   geom_abline(slope = 1,
@@ -546,8 +570,8 @@ ggplot(licor_picarro_comparison %>% mutate(Date = as.factor(Date)),
        aes(x = Licor_ug_C_CO2_per_g_soil_per_hour, 
            y = picarro_ug_C_CO2_per_g_soil_per_hour, group = Date)) +
   geom_point(aes(color = Date)) + 
-  geom_text_repel(aes(label = `Jar Number`)) +
-  facet_grid(~Date) +
+  geom_text_repel(aes(label = `JarIDNum`)) +
+  facet_wrap(~Date) +
   geom_text(data = licor_picarro_models_simplified %>% mutate(Date = as.factor(GasMeasurementDate)), 
             x  = -Inf, y = Inf, hjust = -0.10, vjust = 1.1, 
             aes(label = paste("y = ", round(LicorPicarroSlope, digits = 2),"x + ",
@@ -580,13 +604,15 @@ samples_resp_instrument_corrected <- samples_resp %>%
                                                         ug_C_CO2_in_headspace),
           ug_C_CO2_per_g_soil_inst_corrected = ug_C_CO2_in_headspace_inst_corrected/soil_weight_dry,
           ug_C_CO2_per_g_soil_per_hour_inst_corrected = ug_C_CO2_per_g_soil_inst_corrected/as.numeric(TimeSinceZerod, unit = "hours"),
-         ug_C_CO2_per_g_soil_per_day_inst_corrected = ug_C_CO2_per_g_soil_inst_corrected/(as.numeric(TimeSinceZerod, unit = "days"))) #%>%
-  select(`Jar Number`, Date, contains("ug_C_CO2"), Site, PreIncubationDay, LicorPicarroIntercept, LicorPicarroSlope)
+         ug_C_CO2_per_g_soil_per_day_inst_corrected = ug_C_CO2_per_g_soil_inst_corrected/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
+  select(`SampleID`,JarIDNum,`Jar Number`, Date, contains("ug_C_CO2"), Site, 
+         `Permafrost or Coalescence?`,
+         PreIncubationDay, LicorPicarroIntercept, LicorPicarroSlope)
 
 samples_resp_instrument_corrected %>%
   ungroup() %>%
-  filter(!grepl("Methane", `Jar Number`)) %>%
-  separate(`Jar Number`, into = c("SiteAbbr", "MeasureType", "JarNum"), 
+  #filter(!grepl("Methane", `Jar Number`)) %>%
+  separate(SampleID, into = c("SiteAbbr", "MeasureType", "JarNum"), 
            sep = "-", remove = F) %>%
   mutate(SiteAbbrPermCoal = paste(SiteAbbr, `Permafrost or Coalescence?`)) %>%
   filter(!is.na(SiteAbbrPermCoal)) %>%
@@ -624,7 +650,7 @@ plot_resp <- function(resp_dat = samples_resp,
   summary_title = ""
 
   samples_resp_plot <- resp_dat %>%
-    select(`Jar Number`, contains("Day"), contains("Time"),
+    select(`SampleID`, contains("Day"), contains("Time"),
            `TotalCO2 (ppm)`:ug_C_CH4_per_g_soil_per_day,
            all_of(GroupingVars))
 
@@ -674,7 +700,7 @@ plot_resp <- function(resp_dat = samples_resp,
     summary_plot <- summary_plot +
     geom_text_repel(data = samples_resp_plot,
                aes(y = !!ycolumn,
-                   label = `Jar Number`))
+                   label = `SampleID`))
     label_title = "_labels"
     }
 
@@ -695,8 +721,7 @@ plot_resp <- function(resp_dat = samples_resp,
 # Prepare grouping variables in data
 QC_group_by_site_coal <- samples_resp %>%
   ungroup() %>%
-  filter(!grepl("Methane", `Jar Number`)) %>%
-  separate(`Jar Number`, into = c("SiteAbbr", "MeasureType", "JarNum"), 
+  separate(`SampleID`, into = c("SiteAbbr", "MeasureType", "JarNum"), 
            sep = "-", remove = F) %>%
   rename(Round = `Round Subset (A,B,C,D)`) %>%
   mutate(SiteAbbrPermCoal = paste(SiteAbbr, `Permafrost or Coalescence?`)) %>%
@@ -854,7 +879,7 @@ samples_resp %>%
   mutate(Oxic_Conditions = ifelse(umol_CO2_per_molAir < 20000, F, T)) %>%
   ggplot(aes(x = IncubationTime, y = umol_CO2_per_molAir)) +
   geom_point(aes(color = Oxic_Conditions)) +
-  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_text_repel(aes(label = SampleID)) +
   geom_hline(yintercept = 20000, color = "#B72F40", linetype = "dashed") +
   annotate("curve", xend = 5, x = 5 + 0.5, y = 40000, yend = 20000, curvature = -0.1,
           arrow = arrow(length = unit(0.03, "npc")), color = "#B72F40") +
