@@ -12,23 +12,27 @@ inc_start_times <- "~/Downloads/GasMeasurementTracking_SEI26.xlsx"
 
 # Read in Healy and ice cut data:
 healy_jars_raw <- readxl::read_excel(path = inc_jar_fp, 
-                                     sheet = "Healy Jar IDs", skip =2, na = c("", "NA"))
+                                     sheet = "Healy Jar IDs", 
+                                     range = cell_limits(c(3,1), c(NA,40)),
+                                     na = c("", "NA"))
 healy_jars <- healy_jars_raw %>%
-  rename(SampleID = 1,
-         JarNumber = 2,
-         RepNumber = 6,
-         Comments2 = 22) %>%
+  rename(SampleID = `Jar ID`,
+         JarNumber = `Jar #`,
+         RepNumber = `Rep #`) %>%
   mutate(across(JarNumber:`Specimen Cup Number`, ~ as.factor(.x)))
 
 
 ice_cut_jars_raw <- readxl::read_excel(path = inc_jar_fp, 
-                                     sheet = "Ice Cut Jar IDs", skip =2, na = c("", "NA"))
+                                     sheet = "Ice Cut Jar IDs",
+                                     range = cell_limits(c(3,1), c(NA,40)), 
+                                     na = c("", "NA"))
 ice_cut_jars <- ice_cut_jars_raw %>%
-  rename(SampleID = 1,
-         JarNumber = 2,
-         RepNumber = 6
+  rename(SampleID = `Jar ID`,
+         JarNumber = `Jar #`,
+         RepNumber = `Rep #`
          ) %>%
-  mutate(across(JarNumber:`Specimen Cup Number`, ~ as.factor(.x)),
+  mutate(across(JarNumber:`Specimen Cup Number`, 
+                ~ as.factor(.x)),
          `Mass of Soil and Specimen Cup(g Lab Scale)` = as.numeric(`Mass of Soil and Specimen Cup(g Lab Scale)`))
 
 # read in flush times for pre-incubation start
@@ -58,6 +62,8 @@ preinc_start <- preinc_start_raw %>%
 # Combine jar data into one dataframe 
 
 all_jars <- bind_rows(healy_jars, ice_cut_jars) %>%
+  # Remove any columns that are unnamed
+  select(!matches("\\.\\.\\..{1,3}")) %>%
   # add in volume of jar depending on manufacturer
   # From "10DEC2025_Incubation_Jar_Volume_Calculation.xlsx"
   #ball <- 249.253
