@@ -105,6 +105,7 @@ jar_info <- jar_info_raw %>%
 ```
 
 If you set the options above to use the Ernakovich 2017 data, we'll read it in and prepare it for comparison.
+
 ```{r read-ernakovich2017}
 if(use_ernakovich_data){
 ernakovich_2017_CO2 <- readxl::read_excel(ernakovich2017_fp, 
@@ -357,18 +358,17 @@ resp_dat_raw <- read_respiration_files(
 
 ```
 
-**STOP:** If there are any warnings or errors, check the spreadsheets you are reading in before proceeding.  
+**STOP:** If there are any warnings or errors, check the spreadsheets you are reading in before proceeding.
 
 ### Calculate Respirations
 
 Next we need to calculate the respiration rates. In brief this means we need to:
 
 1.  Correct the amount of gas measured for the volume of air in the headspace (which can vary between jars - particularly if you use different brands)
-     - calculate convert the jar pressure from PSIG (the guage air pressure) to atm
+    -   calculate convert the jar pressure from PSIG (the guage air pressure) to atm
 2.  Calculate the dry soil weight in each jar (based on the gravimetric water content or gravimetric soil content (`GSC_perc`) )
 3.  Convert the total gas produced in micromoles to micrograms (to align with conventional units)
 4.  Divide the amount of gas produced by the hours and days since the jars have been flushed to produce and hourly and daily rate
-
 
 ```{r, respiration-calculations}
 
@@ -391,12 +391,13 @@ samples_resp <- resp_dat_raw$resp_raw %>%
   mutate(ug_C_CO2_per_g_soil_per_hour = ug_C_CO2_per_g_soil/as.numeric(TimeSinceZerod, unit = "hours"),
          ug_C_CO2_per_g_soil_per_day = ug_C_CO2_per_g_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
   mutate(ug_C_CH4_per_g_soil_per_hour = ug_C_CH4_per_g_soil/as.numeric(TimeSinceZerod, unit = "hours"),
-         ug_C_CH4_per_g_soil_per_day = ug_C_CH4_per_g_soil/(as.numeric(TimeSinceZerod, unit = "days")))
+         ug_C_CH4_per_g_soil_per_day = ug_C_CH4_per_g_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
+    mutate(PercentCH4 = `ug_C_CH4_per_g_soil`/(`ug_C_CH4_per_g_soil` + `ug_C_CO2_per_g_soil`))
 
 
 ```
 
-Placeholder for future checks where we can compare internal standard values to expected values. 
+Placeholder for future checks where we can compare internal standard values to expected values.
 
 ```{r, internal-standards}
 standard_readings <- resp_dat_raw$resp_raw %>%
@@ -405,7 +406,8 @@ standard_readings <- resp_dat_raw$resp_raw %>%
 
 # Basic checks:
 
-1) Any samples NA? figure out why before moving on:
+1)  Any samples NA? figure out why before moving on:
+
 ```{r}
 rate_cols <- c("ug_C_CO2_per_g_soil_per_hour", "ug_C_CO2_per_g_soil_per_day") 
 
@@ -428,20 +430,21 @@ samples_resp %>%
 
 Common issues:
 
-- Flush date and time are not entered correctly 
-   - If so, leave a comment in the spreadsheet tagging the person responsible for the measurement. 
-- temperature, pressure, or other necessary variable is missing.
-- soil weights not entered
-- Typo in sample name or number
-- Measurement is impossible (e.g. negative ppm); if so, update data spreasheet on sharepoint with note in comments
-- equations need to be copied into cells in spreasheet
+-   Flush date and time are not entered correctly
+    -   If so, leave a comment in the spreadsheet tagging the person responsible for the measurement.
+-   temperature, pressure, or other necessary variable is missing.
+-   soil weights not entered
+-   Typo in sample name or number
+-   Measurement is impossible (e.g. negative ppm); if so, update data spreasheet on sharepoint with note in comments
+-   equations need to be copied into cells in spreasheet
 
-If necessary, find the date of the timestamp for the measurement and check the corresponding excel sheet and lab notebook pages. Message the person who took the measurement to verify any uncertainties. 
+If necessary, find the date of the timestamp for the measurement and check the corresponding excel sheet and lab notebook pages. Message the person who took the measurement to verify any uncertainties.
 
 **Only make changes to the raw spreadsheets if you are certain you know the correct value. And always note your changes in a comment column, with your name or initials and the date.**
 
-2) Check for duplicate observations on the same day. Make sure that all are appropriate
-- appropriate duplicates include jars measured on both picarro and licor. 
+2)  Check for duplicate observations on the same day. Make sure that all are appropriate
+
+-   appropriate duplicates include jars measured on both picarro and licor.
 
 ```{r}
 samples_resp %>%
@@ -458,10 +461,10 @@ duplicates_to_filter <- c("377", "45", "177")
 
 ```
 
-3) Check that the jars that were supposed to be measured were measured. [TBD until checklist spreadsheets exist] 
+3)  Check that the jars that were supposed to be measured were measured. \[TBD until checklist spreadsheets exist\]
 
+4)  Histogram for any obvious outliers. If something is very large or very small, check the raw data to be sure it isn't a typo.
 
-4) Histogram for any obvious outliers. If something is very large or very small, check the raw data to be sure it isn't a typo. 
 ```{r}
 samples_resp %>%
   select(`Jar Number`, Date, all_of(rate_cols)) %>%
@@ -474,9 +477,10 @@ samples_resp %>%
 
 ```
 
-5) Comparison between instruments
-- we want to make a conversion factor between each of the two instruments, but this also can serve as a good check. 
-- if any samples are wildly off the 1:1 line, go look into the original data sheets and verify it is not an issue with the original data. 
+5)  Comparison between instruments
+
+-   we want to make a conversion factor between each of the two instruments, but this also can serve as a good check.
+-   if any samples are wildly off the 1:1 line, go look into the original data sheets and verify it is not an issue with the original data.
 
 ```{r}
 list_to_filter_out <- c(duplicates_to_filter, 
@@ -588,8 +592,8 @@ ggplot(licor_picarro_comparison %>% mutate(Date = as.factor(Date)),
 
 ```
 
+Now that the relationship between licor and picarro is known for each measurement day, we can use it to re-calculate the licor output.
 
-Now that the relationship between licor and picarro is known for each measurement day, we can use it to re-calculate the licor output. 
 ```{r}
 samples_resp_instrument_corrected <- samples_resp %>%
   left_join(licor_picarro_models_simplified, by = c("Date" = "GasMeasurementDate")) %>%
@@ -626,9 +630,11 @@ samples_resp_instrument_corrected %>%
 #   geom_point(aes(color = MeasurementInstrument))
 
 ```
+
 # Plot respiration
 
 Create a function for plotting respiration
+
 ```{r}
 plot_resp <- function(resp_dat = samples_resp,
                       yval = "ug_C_CH4_per_g_soil",
@@ -651,7 +657,7 @@ plot_resp <- function(resp_dat = samples_resp,
 
   samples_resp_plot <- resp_dat %>%
     select(`SampleID`, contains("Day"), contains("Time"),
-           `TotalCO2 (ppm)`:ug_C_CH4_per_g_soil_per_day,
+           `TotalCO2 (ppm)`:PercentCH4,
            all_of(GroupingVars))
 
   samples_resp_plot_summary <- samples_resp_plot %>%
@@ -748,6 +754,16 @@ site_coal_co2_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
 site_coal_co2_plot
 
+site_coal_percCH4_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
+                  yval = "PercentCH4",
+                  xval = "PreIncubationDay",
+                  summary_plot = T,
+                  jar_labels = F, 
+                  all_points = T,
+                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+
+site_coal_percCH4_plot
+
 
 site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
                   yval = "ug_C_CH4_per_g_soil_per_day",
@@ -764,6 +780,14 @@ site_coal_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
                    all_points = T,
                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
 site_coal_co2_plot_label
+
+site_coal_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
+                   yval = "PercentCH4",
+                   xval = "PreIncubationDay",
+                   jar_labels = T,
+                   all_points = T,
+                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+site_coal_percCH4_plot_label
 
 site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
                   yval = "ug_C_CH4_per_g_soil_per_day",
@@ -783,10 +807,19 @@ site_coal_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
                   all_points = T,
                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
 site_coal_co2_plot_pointsonly
+
+site_coal_percCH4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
+                  yval = "PercentCH4",
+                  xval = "PreIncubationDay",
+                  summary_plot = F,
+                  jar_labels = F, 
+                  all_points = T,
+                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+site_coal_percCH4_plot_pointsonly
 ```
 
+Just for fun, plot each sample with the name of the person who ran it:
 
-Just for fun, plot each sample with the name of the person who ran it: 
 ```{r}
 # By Person
 student_data <- QC_group_by_site_coal %>%
@@ -810,6 +843,7 @@ ggsave(filename = paste0(fp_figout, "ug_C_CH4_per_g_soil_per_day",
 ```
 
 # How do these data compare to Ernakovich 2017?
+
 ```{r}
 
 if(exists("ernakovich_2017")) {
@@ -865,6 +899,7 @@ ggsave(filename = paste0(fp_figout, "ug_C_CO2_per_g_soil_per_day",
   
 ```
 
+
 # More in-Depth Quality Control Practices
 
 ### Oxygen treatments must be oxic
@@ -892,11 +927,12 @@ samples_resp %>%
 
 ### Identify and filter out outlier points and jars
 
-
 # Calculate and plot Cumulative C
+
 5.  **NOT CURRENTLY IMPLEMENTED:** Calculate the cumulative sum of carbon released by multiplying the gas flux rate by the time that has passed for each time step, and cumulatively adding all of these values together.
 
-# Convert Licor and picarro readings into same space. 
-- will need to filter out and/or average across samples that are measured on both instruments. 
+# Convert Licor and picarro readings into same space.
+
+-   will need to filter out and/or average across samples that are measured on both instruments.
 
 # Once QC is finished, write out the final data
