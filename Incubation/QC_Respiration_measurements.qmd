@@ -61,6 +61,12 @@ PSI_to_atm <- 0.06804596 # psi to atm
 PSI_to_hPa <- 68.9476 # psi to hpa
 hPa_to_atm <- 0.0009869233 # hpa to atm 
 
+# TEA levels
+tea_levels = c("Carbon Dioxide", "Sulfate", "Iron", "Nitrate", "Oxygen", "None")
+# Temperature levels
+temp_levels = c("4", "10", "15", "20", "25", "None")
+temp_colors = hcl.colors(length(temp_levels)-1, palette = "Berlin")
+temp_colors = c(temp_colors, "grey") # adds the "None"
 # Outlier function
 isnt_out_tukey <- function(x, k = 1.5, na.rm = TRUE) {
   quar <- quantile(x, probs = c(0.25, 0.75), na.rm = na.rm)
@@ -91,17 +97,19 @@ First we'll read in the sample metadata and jar information. This is important b
 # Reading in sample metadata information
 jar_info_raw <- read_tsv(file = fp_metadata) %>%
   mutate(across(JarNumber:`Specimen Cup Number`, ~ as.factor(.x))) %>%
-  rename(AnoxicOxic =`Anoxic/Oxic?`)  
+  rename(AnoxicOxic =`Anoxic/Oxic?`) %>%
+  mutate(TEA = factor(TEA, levels =tea_levels),
+         `Incubation Temp` = factor( `Incubation Temp`, levels = temp_levels))
 
 # Extract incubation start times
 jar_incubation_time_info <- jar_info_raw %>%
   select(JarIDNum, contains("IncubationStart")) %>%
   mutate(PreIncubationStart = force_tz(PreIncubationStart, tz = "America/New_York"),
-         IncubationStart = as_datetime("2026-02-09 12:00:00", tz = "America/New_York")) # temporary until start date is determined added in
+         IncubationStart = force_tz(IncubationStart, tz = "America/New_York")) # temporary until start date is determined added in
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 jar_info <- jar_info_raw %>%
-  select(SampleID:Site, `Mass of Soil(g Lab Scale)`, GSC_Perc, HeadspaceVolume)
+  select(SampleID:Site, `Incubation Temp`, `Mass of Soil(g Lab Scale)`, GSC_Perc, HeadspaceVolume)
 ```
 
 If you set the options above to use the Ernakovich 2017 data, we'll read it in and prepare it for comparison.
@@ -199,11 +207,12 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                          rep("numeric", 4), # mean-pre:Est Conc
                          "text", # Remarks
                          rep("numeric", 10), #:effective volume of loop:True amount of CO2
-                       "guess","guess","guess","guess") # standard curve calcs
+                       "guess","text", "numeric", "numeric") # standard curve calcs
     
     resp_raw_licor <- map_dfr(Resp_files, 
                                ~readxl::read_excel(.x,sheet = 1,
                                                    col_types = col_types_licor,
+                                                   range = cell_limits(c(1,1), c(NA,31)),
                                                    na = c("nan", "#VALUE!", "#DIV/0!")) %>%
                                 rename_with(.fn = ~ gsub("\\(psi\\)", "\\(psig\\)", .)))
     resp_raw_licor <- resp_raw_licor %>%
@@ -736,7 +745,7 @@ QC_group_by_site_coal <- samples_resp %>%
 
 # Create plots
 site_coal_ch4_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
+                  yval = "ug_C_CH4_per_g_soil",
                   xval = "PreIncubationDay",
                   summary_plot = T,
                   jar_labels = F, 
@@ -746,7 +755,7 @@ site_coal_ch4_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot
 
 site_coal_co2_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
-                   yval = "ug_C_CO2_per_g_soil_per_day",
+                   yval = "ug_C_CO2_per_g_soil",
                    xval = "PreIncubationDay",
                    summary_plot = T,
                    jar_labels = F,
@@ -766,7 +775,7 @@ site_coal_percCH4_plot
 
 
 site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
+                  yval = "ug_C_CH4_per_g_soil",
                   xval = "PreIncubationDay",
                   jar_labels = T, 
                   all_points = T,
@@ -774,7 +783,7 @@ site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot_label
 
 site_coal_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
-                   yval = "ug_C_CO2_per_g_soil_per_day",
+                   yval = "ug_C_CO2_per_g_soil",
                    xval = "PreIncubationDay",
                    jar_labels = T,
                    all_points = T,
@@ -790,7 +799,7 @@ site_coal_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_percCH4_plot_label
 
 site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
+                  yval = "ug_C_CH4_per_g_soil",
                   xval = "PreIncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
@@ -800,7 +809,7 @@ site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot_pointsonly
 
 site_coal_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CO2_per_g_soil_per_day",
+                  yval = "ug_C_CO2_per_g_soil",
                   xval = "PreIncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
@@ -911,9 +920,10 @@ Check that no ppm has exceeded 2% CO2 in oxic treatments **CODE NOT CURRENTLY TE
 samples_resp %>%
   filter(AnoxicOxic == "Oxic") %>%
   filter(!is.na(umol_CO2_per_molAir)) %>%
-  mutate(Oxic_Conditions = ifelse(umol_CO2_per_molAir < 20000, F, T)) %>%
-  ggplot(aes(x = IncubationTime, y = umol_CO2_per_molAir)) +
-  geom_point(aes(color = Oxic_Conditions)) +
+  filter(IncubationDay >= 0) %>%
+  mutate(`Jar has gone anoxic` = ifelse(umol_CO2_per_molAir < 20000, F, T)) %>%
+  ggplot(aes(x = IncubationTime/24, y = umol_CO2_per_molAir)) +
+  geom_point(aes(color = `Jar has gone anoxic`), alpha = 0.5) +
   geom_text_repel(aes(label = SampleID)) +
   geom_hline(yintercept = 20000, color = "#B72F40", linetype = "dashed") +
   annotate("curve", xend = 5, x = 5 + 0.5, y = 40000, yend = 20000, curvature = -0.1,
@@ -926,6 +936,215 @@ samples_resp %>%
 ```
 
 ### Identify and filter out outlier points and jars
+
+```{r}
+plot_resp_TEA_temp <- function(resp_dat = QC_group_by_site_coal,
+                      yval = "ug_C_CH4_per_g_soil",
+                      xval = "IncubationDay",
+                      summary_plot = T,
+                      jar_labels = F,
+                      all_points = T,
+                      save = T,
+                      save_location = fp_figout,
+                      GroupingVars = c("TEA", "Incubation Temp",
+                                       "SiteAbbrPermCoal")) {
+  #args_list <- list(...)
+  #print(args_list)
+  #print(GroupingVars)
+  xcolumn <- sym(xval)
+  ycolumn <- sym(yval)
+  # title defaults for saving plot
+  label_title = ""
+  points_title = ""
+  summary_title = ""
+
+  samples_resp_plot <- resp_dat %>%
+    select(`SampleID`, contains("Day"), contains("Time"),
+           `TotalCO2 (ppm)`:PercentCH4,
+           all_of(GroupingVars))
+
+  samples_resp_plot_summary <- samples_resp_plot %>%
+    group_by(across(all_of(c(xval, GroupingVars)))) %>%
+    select(contains(c("CO2", "CH4"))) %>%
+    summarize(across(contains(c("CH4", "CO2")), 
+                     list(mean = ~mean(., na.rm = T),
+                          sd = ~sd(., na.rm = T),
+                          N = ~sum(!is.na(.)), 
+                          se = ~sd(., na.rm = T)/sqrt(sum(!is.na(.))),
+                          se_lwr = ~mean(., na.rm = T) - (sd(., na.rm = T)/sqrt(sum(!is.na(.)))),
+                          se_upr = ~mean(., na.rm = T) + (sd(., na.rm = T)/sqrt(sum(!is.na(.))))
+                          )
+                   )) %>%
+    ungroup()
+
+  ymean = sym(paste0(yval, "_mean"))
+  ylwr =  sym(paste0(yval, "_se_lwr"))
+  yupr =  sym(paste0(yval, "_se_upr"))
+  line_var = sym(GroupingVars[3])
+  color_var = sym(GroupingVars[2])
+  shape_var = sym(GroupingVars[3])
+
+  if(summary_plot){
+    summary_plot <- samples_resp_plot_summary %>%
+      ggplot(aes(y = !!ymean, x = !!xcolumn, color = !!color_var)) +
+      geom_point(aes(shape = !!shape_var), size = 3) +
+      scale_shape_manual(values = c(21,16,24,17)) +
+      scale_color_manual(breaks = temp_levels, values = temp_colors) +
+      geom_line(aes(group = !!line_var)) +
+      geom_errorbar(data = samples_resp_plot_summary,
+                  aes(ymin = !!ylwr,
+                       ymax = !!yupr))
+  } else {
+    summary_plot <- samples_resp_plot_summary %>%
+      ggplot(aes(y = !!ymean, x = !!xcolumn, color = !!color_var)) +
+      scale_shape_manual(values = c(21,16,24,17)) +
+      scale_color_manual(breaks = temp_levels, values = temp_colors)
+    summary_title = "_noSummary"
+  }
+  
+  # Plot all points as well as means and std.errs
+  if(all_points) {
+    summary_plot <- summary_plot +
+      geom_point(data = samples_resp_plot,
+               aes(y = !!ycolumn, x = !!xcolumn, shape = !!shape_var)) +
+      facet_grid(`Incubation Temp`~ TEA)
+    points_title = "_all_points"
+  }
+    
+  # Plot jar labels
+  if(jar_labels) {
+    summary_plot <- summary_plot +
+    geom_text_repel(data = samples_resp_plot,
+               aes(y = !!ycolumn,
+                   label = `SampleID`))
+    label_title = "_labels"
+    }
+
+  summary_plot <- summary_plot +
+    theme(legend.position = "bottom", 
+          legend.direction = "horizontal",
+          legend.title.position = "top")
+  if(save) {
+    ggsave(filename = paste0(save_location, yval, "_TEATemp", 
+                             points_title, label_title, summary_title, ".png"),
+           width = 8, height = 8,
+           summary_plot,
+           device = "png")
+  }
+
+  return(summary_plot)
+
+}
+```
+
+
+```{r}
+
+# Prepare grouping variables in data
+QC_group_by_site_coal <- samples_resp %>%
+  ungroup() %>%
+  filter(IncubationDay >= 0) %>%
+  filter(`Incubation Temp` %in% c("4", "10", "15", "20", "25")) %>%
+  separate(`SampleID`, into = c("SiteAbbr", "MeasureType", "JarNum"), 
+           sep = "-", remove = F) %>%
+  rename(Round = `Round Subset (A,B,C,D)`) %>%
+  mutate(SiteAbbrPermCoal = paste(SiteAbbr, `Permafrost or Coalescence?`)) %>%
+  mutate(SiteIncRound = paste(Site, "- Round", `Incubation Round`)) %>%
+  filter(!is.na(SiteAbbrPermCoal))
+
+# Create plots
+site_coal_ch4_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                  yval = "ug_C_CH4_per_g_soil",
+                  xval = "PreIncubationDay",
+                  summary_plot = T,
+                  jar_labels = F, 
+                  all_points = T,
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+
+site_coal_ch4_plot
+
+site_coal_co2_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                   yval = "ug_C_CO2_per_g_soil",
+                   xval = "PreIncubationDay",
+                   summary_plot = T,
+                   jar_labels = F,
+                   all_points = T,
+                   GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+site_coal_co2_plot
+
+site_coal_percCH4_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                  yval = "PercentCH4",
+                  xval = "PreIncubationDay",
+                  summary_plot = T,
+                  jar_labels = F, 
+                  all_points = T,
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+
+site_coal_percCH4_plot
+
+site_coal_ch4_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                  yval = "ug_C_CH4_per_g_soil",
+                  xval = "PreIncubationDay",
+                  jar_labels = T, 
+                  all_points = T,
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+site_coal_ch4_plot_label
+
+site_coal_co2_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                   yval = "ug_C_CO2_per_g_soil",
+                   xval = "PreIncubationDay",
+                   jar_labels = T,
+                   all_points = T,
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+site_coal_co2_plot_label
+
+site_coal_percCH4_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                   yval = "PercentCH4",
+                   xval = "PreIncubationDay",
+                   jar_labels = T,
+                   all_points = T,                  
+                   GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+site_coal_percCH4_plot_label
+
+site_coal_ch4_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                  yval = "ug_C_CH4_per_g_soil",
+                  xval = "PreIncubationDay",
+                  summary_plot = F,
+                  jar_labels = F, 
+                  all_points = T,
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+
+site_coal_ch4_plot_pointsonly
+
+site_coal_co2_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                  yval = "ug_C_CO2_per_g_soil",
+                  xval = "PreIncubationDay",
+                  summary_plot = F,
+                  jar_labels = F, 
+                  all_points = T,                  
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+site_coal_co2_plot_pointsonly
+
+site_coal_percCH4_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
+                  yval = "PercentCH4",
+                  xval = "PreIncubationDay",
+                  summary_plot = F,
+                  jar_labels = F, 
+                  all_points = T,                  
+                  GroupingVars = c("TEA", "Incubation Temp", 
+                                   "SiteAbbrPermCoal"))
+site_coal_percCH4_plot_pointsonly
+```
+
+
 
 # Calculate and plot Cumulative C
 

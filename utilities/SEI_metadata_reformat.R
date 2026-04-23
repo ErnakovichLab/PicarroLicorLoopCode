@@ -13,7 +13,7 @@ inc_start_times <- "~/Downloads/GasMeasurementTracking_SEI26.xlsx"
 # Read in Healy and ice cut data:
 healy_jars_raw <- readxl::read_excel(path = inc_jar_fp, 
                                      sheet = "Healy Jar IDs", 
-                                     range = cell_limits(c(3,1), c(NA,40)),
+                                     range = cell_limits(c(1,1), c(NA,40)),
                                      na = c("", "NA"))
 healy_jars <- healy_jars_raw %>%
   rename(SampleID = `Jar ID`,
@@ -24,7 +24,7 @@ healy_jars <- healy_jars_raw %>%
 
 ice_cut_jars_raw <- readxl::read_excel(path = inc_jar_fp, 
                                      sheet = "Ice Cut Jar IDs",
-                                     range = cell_limits(c(3,1), c(NA,40)), 
+                                     range = cell_limits(c(1,1), c(NA,40)), 
                                      na = c("", "NA"))
 ice_cut_jars <- ice_cut_jars_raw %>%
   rename(SampleID = `Jar ID`,
@@ -37,10 +37,10 @@ ice_cut_jars <- ice_cut_jars_raw %>%
 
 # read in flush times for pre-incubation start
 preinc_start_IC_raw <- readxl::read_excel(path = inc_start_times, 
-                                       sheet = c(1), skip =1, na = c("", "NA"))
+                                       sheet = c("IceCut_GasMeas"), skip =1, na = c("", "NA"))
 
 preinc_start_H_raw <- readxl::read_excel(path = inc_start_times, 
-                                          sheet = c(2), skip =1, na = c("", "NA"))
+                                          sheet = c("Healy_GasMeas"), skip =1, na = c("", "NA"))
 
 preinc_start_raw <- bind_rows(preinc_start_H_raw, preinc_start_IC_raw)
 
@@ -59,11 +59,28 @@ preinc_start <- preinc_start_raw %>%
   # filter_out(`Jar ID` == 285 & !is.na(Notes)) %>% # Filter spilled jar; incubation start is different than flush
   select(`Jar ID`, `Gas Flush Time Ended`)
 
+
+# Incubation start:
+
+# read in flush times for pre-incubation start
+inc_start_raw <- readxl::read_excel(path = inc_start_times, 
+                                          sheet = c("GM_Tracking"), na = c("", "NA")) %>%
+  mutate(JarNumber = as.factor(`Jar #`)) %>%
+  mutate(`Incubation Start Date` = word(as.character(`Incubation Start Date`), 1),
+         `Incubation Start Time` = word(as.character(`Incubation Start Time`), 2)) %>%
+  mutate(IncubationStart = ifelse(!is.na(`Incubation Start Date`),
+                                     paste(`Incubation Start Date`,`Incubation Start Time`),
+                                     NA),
+         IncubationStart = lubridate::ymd_hms(IncubationStart,
+                                   tz = "America/New_York"))
+# inc_start_raw %>% select(`Jar #`, `IncubationStart`) %>% View()
 # Combine jar data into one dataframe 
 
 all_jars <- bind_rows(healy_jars, ice_cut_jars) %>%
   # Remove any columns that are unnamed
   select(!matches("\\.\\.\\..{1,3}")) %>%
+  left_join(inc_start_raw %>% select(`Jar ID`, `IncubationStart`),
+            by = c("SampleID" = "Jar ID")) %>%
   # add in volume of jar depending on manufacturer
   # From "10DEC2025_Incubation_Jar_Volume_Calculation.xlsx"
   #ball <- 249.253
@@ -79,8 +96,11 @@ all_jars <- bind_rows(healy_jars, ice_cut_jars) %>%
                               SiteAbbr == "IC" & `Permafrost or Coalescence?` == "Coal" ~ (33.53 + 50.72)/2,
                               SiteAbbr == "IC" & `Permafrost or Coalescence?` == "PF" ~ 33.53)) %>%
   mutate(MasonJarVolume = case_when(grepl("Ball", `Jar Manufacturer`) ~ 249.253,
-                                    grepl("Uline", `Jar Manufacturer`) ~ 250.29)) %>%
-  mutate(HeadspaceVolume = MasonJarVolume - `Mass of Buffer:`) # headspace volume = volume of jar - (mass of buffer / density of water); assumes buffer/soil mix is density = 1*
+                                    grepl("Uline", `Jar Manufacturer`) ~ 250.29,
+                                    .default = mean(249.253, 250.29))) %>%
+  mutate(HeadspaceVolume = MasonJarVolume - `Mass of Buffer:`)  %>% # headspace volume = volume of jar - (mass of buffer / density of water); assumes buffer/soil mix is density = 1*
+  mutate(`Incubation Temp` = `Actual Incubation Temp`) %>%
+  filter(!is.na(SampleID))
 # What to do about spilled jars?? - assume mixture was well mixed according to maggie
 # what to do about differences in specimen cup volumes? - maggie
 
