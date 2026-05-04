@@ -109,7 +109,7 @@ jar_incubation_time_info <- jar_info_raw %>%
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 jar_info <- jar_info_raw %>%
-  select(SampleID:Site, `Incubation Temp`, `Mass of Soil(g Lab Scale)`, GSC_Perc, HeadspaceVolume)
+  select(SampleID:Site, `Incubation Temp`, `Mass of Soil(g Lab Scale)`, Mass_of_PreInc_subsample_g, GSC_Perc, HeadspaceVolume)
 ```
 
 If you set the options above to use the Ernakovich 2017 data, we'll read it in and prepare it for comparison.
@@ -223,15 +223,19 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
       # when anything else is encountered use the number as written
       mutate(JarIDNum = case_when(grepl("(.{1,})-(.{1,})-(\\d{1,3})", 
                                         `Jar Number`) ~ str_extract(`Jar Number`,
-                                                                                  "(.{1,})-(.{1,})-(\\d{1,3})",
-                                                                                  group = 3),
+                                                                    "(.{1,})-(.{1,})-(\\d{1,3})",
+                                                                    group = 3),
+                                  grepl("(C.{1,})-(.{1,})-(.{1,})", 
+                                        `Jar Number`) ~str_extract(`Jar Number`,
+                                                                    "(C.{1,})-(.{1,})-(.{1,})",
+                                                                    group = 1),
                                   str_count(`Jar Number`, "-") == 0 ~ `Jar Number`,
                                   .default = `Jar Number`)) %>%
       select(SampleType,JarIDNum, `Jar Number`:`True amount of CO2 (uMol)`) %>%
       # Add in measurement instrument and fix the timezone of time columns
       mutate(MeasurementInstrument = "Licor",
              `Time Incubation Jar was Last Flushed (Leave blank for standard curve)` = force_tz(`Time Incubation Jar was Last Flushed (Leave blank for standard curve)`, tz = "America/New_York"), 
-             Timestamp = as_datetime(Timestamp, tz = "America/New_York")) # need to check that this is correct!
+             Timestamp = force_tz(Timestamp, tz = "America/New_York")) # need to check that this is correct!
     
     # Change names to match variables between licor and picarro
     resp_raw_licor <- resp_raw_licor %>%
@@ -264,7 +268,7 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                        "date", # time of start of measurements
                        rep("numeric", 8), #Mean of pre-12CO2:MeanH2O%post 
                        "text", # Remarks 
-                       rep("numeric", 32), # effective volume of loop:TrueDelta permil
+                       rep("guess", 32), # effective volume of loop:TrueDelta permil
                        rep("guess", 12)) # regression calculations
     # readxl::read_excel(Resp_files[2], sheet = 1, skip = 1,
     #                                                col_types = col_types_picarro,
@@ -287,6 +291,10 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
                                         `Jar Number`) ~ str_extract(`Jar Number`,
                                                                     "(.{1,})-(.{1,})-(\\d{1,3})",
                                                                     group = 3),
+                                  grepl("(C.{1,})-(.{1,})-(.{1,})", 
+                                        `Jar Number`) ~str_extract(`Jar Number`,
+                                                                    "(C.{1,})-(.{1,})-(.{1,})",
+                                                                    group = 1),
                                   str_count(`Jar Number`, "-") == 0 ~ `Jar Number`,
                                   .default = `Jar Number`)) %>%
       select(SampleType, JarIDNum, `Jar Number`:`True delta iCO2 (permil)`) %>%
@@ -383,10 +391,21 @@ Next we need to calculate the respiration rates. In brief this means we need to:
 
 samples_resp <- resp_dat_raw$resp_raw %>%
   filter(SampleType == "Sample") %>%
+  # make samples within precision of instrument zero
+  mutate(`TotalCH4 (ppm)` = case_when(`Difference in 12CH4 quality flag` == "DifferenceBelowPrecision" ~ 0,
+                                      .default = `TotalCH4 (ppm)`)) %>%
+  mutate(`TotalCH4 (uMol)` = case_when(`Difference in 12CH4 quality flag` == "DifferenceBelowPrecision" ~ 0,
+                                      .default = `TotalCH4 (uMol)`)) %>%
+  filter(if_any(contains("TotalCH4"), ~(is.na(.x) | .x >=0))) %>%
   # Convert into a per-gram basis, based on Jar number
   left_join(jar_info, by = c("JarIDNum")) %>%
   mutate(jar_headspace_mL = HeadspaceVolume, # need to correct for specimen cup volume
-         soil_weight_dry = `Mass of Soil(g Lab Scale)` * (GSC_Perc/100),
+         Mass_after_preinc_subsample = `Mass of Soil(g Lab Scale)` - Mass_of_PreInc_subsample_g,
+         Mass_of_soil_at_time_of_gas_measurement = case_when(is.na(IncubationDay) ~ `Mass of Soil(g Lab Scale)`,
+                                                             IncubationDay < days(0) ~ `Mass of Soil(g Lab Scale)`,
+                                                             IncubationDay >= days(0) ~ Mass_after_preinc_subsample, 
+                                                             .default = NA_real_)) %>%
+  mutate(soil_weight_dry = Mass_of_soil_at_time_of_gas_measurement * (GSC_Perc/100),
          MolAir_headspace = (1/1000)*(jar_headspace_mL * AbsoluteJarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
          umol_CO2_in_headspace = jar_headspace_mL * (`TotalCO2 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
          umol_CH4_in_headspace = jar_headspace_mL * (`TotalCH4 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
@@ -410,7 +429,54 @@ Placeholder for future checks where we can compare internal standard values to e
 
 ```{r, internal-standards}
 standard_readings <- resp_dat_raw$resp_raw %>%
-  filter(SampleType == "Internal Standard")
+  filter(SampleType == "Internal Standard") %>%
+  select(Timestamp, `Jar Number`, `TotalCO2 (ppm)`, `TotalCH4 (ppm)`) %>%
+  mutate(DistanceFromStandard = case_when(grepl("ethane", `Jar Number`) ~ 1000-`TotalCH4 (ppm)`,
+                                             grepl("1022", `Jar Number`) ~ 1022-`TotalCO2 (ppm)`,
+                                             grepl("CO2", `Jar Number`) ~ 1022-`TotalCO2 (ppm)`,
+                                             grepl("Tank", `Jar Number`)~ 1022-`TotalCO2 (ppm)`,
+                                             .default = NA_real_))
+
+standard_readings %>%
+  filter(`TotalCO2 (ppm)` < 5000) %>%
+  ggplot(aes(x = Timestamp, y = DistanceFromStandard)) +
+  geom_point() +
+  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_hline(aes(yintercept = 0)) +
+  scale_x_date(date_breaks = "20 days")
+
+acceptable_tolerance <- 0.05 # 5%
+internal_standard_tolerance_df <- tibble(
+  Standard = c("Methane 1000", "CO2 1022"),
+  GasMeasured = c("TotalCH4 (ppm)", "TotalCO2 (ppm)"),
+  `Concentration (PPM)` = c(1000, 1022),
+  upper_limit = c(1000*(1 +acceptable_tolerance), 1022*(1 +acceptable_tolerance)),
+  lower_limit = c(1000*(1 -acceptable_tolerance), 1022*(1 - acceptable_tolerance)),
+  Timestamp = NA
+)
+standard_readings %>%
+    filter(`TotalCO2 (ppm)` < 5000) %>%
+  pivot_longer(contains("ppm"), names_to = "GasMeasured", values_to = "Concentration (PPM)") %>%
+  ggplot(aes(x = Timestamp, y = `Concentration (PPM)`)) +
+  geom_point() +
+  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_hline(data = internal_standard_tolerance_df, 
+             aes(yintercept = `Concentration (PPM)`)) +
+  geom_hline(data = internal_standard_tolerance_df, 
+             aes(yintercept = lower_limit), color = "firebrick", linetype = "dashed") +
+  geom_hline(data = internal_standard_tolerance_df, 
+             aes(yintercept = upper_limit), color = "firebrick", linetype = "dashed") +
+  facet_wrap(~GasMeasured)# +
+  #scale_x_date(date_breaks = "20 days")
+
+
+standard_readings %>%
+  filter(`TotalCO2 (ppm)` < 5000) %>%
+  ggplot(aes(x = Timestamp, y = `TotalCO2 (ppm)`)) +
+  geom_point() +
+  geom_text_repel(aes(label = `Jar Number`)) +
+  geom_hline(aes(yintercept = 1022)) +
+  scale_x_date(date_breaks = "20 days")
 ```
 
 # Basic checks:
@@ -435,6 +501,14 @@ samples_resp %>%
          all_of(picarro_rate_cols), everything()) %>%
   filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% View()
 
+
+# Check for measurements below instrument precision
+samples_resp %>%
+  filter(MeasurementInstrument == "picarro") %>%
+  select(SampleType, JarIDNum, MeasurementInstrument, Timestamp, 
+         all_of(picarro_rate_cols), everything()) %>%
+  filter(if_any(all_of(contains("quality flag")), ~ grepl("Below", .x))) %>% View()
+
 ```
 
 Common issues:
@@ -457,10 +531,10 @@ If necessary, find the date of the timestamp for the measurement and check the c
 
 ```{r}
 samples_resp %>%
-  select(`Jar Number`, Date, MeasurementInstrument,
+  select(`JarIDNum`, Date, MeasurementInstrument,
          ug_C_CO2_in_headspace, ug_C_CO2_per_g_soil_per_hour, 
          ug_C_CO2_per_g_soil_per_day) %>%
-  dplyr::summarise(n = dplyr::n(), .by= c(`Jar Number`, Date,
+  dplyr::summarise(n = dplyr::n(), .by= c(`JarIDNum`, Date,
   MeasurementInstrument)) %>%
   dplyr::filter(n > 1L)
 
@@ -745,7 +819,7 @@ QC_group_by_site_coal <- samples_resp %>%
 
 # Create plots
 site_coal_ch4_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil",
+                  yval = "ug_C_CH4_per_g_soil_per_day",
                   xval = "PreIncubationDay",
                   summary_plot = T,
                   jar_labels = F, 
@@ -755,7 +829,7 @@ site_coal_ch4_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot
 
 site_coal_co2_plot <- plot_resp(resp_dat = QC_group_by_site_coal,
-                   yval = "ug_C_CO2_per_g_soil",
+                   yval = "ug_C_CO2_per_g_soil_per_day",
                    xval = "PreIncubationDay",
                    summary_plot = T,
                    jar_labels = F,
@@ -775,7 +849,7 @@ site_coal_percCH4_plot
 
 
 site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil",
+                  yval = "ug_C_CH4_per_g_soil_per_day",
                   xval = "PreIncubationDay",
                   jar_labels = T, 
                   all_points = T,
@@ -783,7 +857,7 @@ site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot_label
 
 site_coal_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
-                   yval = "ug_C_CO2_per_g_soil",
+                   yval = "ug_C_CO2_per_g_soil_per_day",
                    xval = "PreIncubationDay",
                    jar_labels = T,
                    all_points = T,
@@ -799,7 +873,7 @@ site_coal_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_percCH4_plot_label
 
 site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil",
+                  yval = "ug_C_CH4_per_g_soil_per_day",
                   xval = "PreIncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
@@ -809,7 +883,7 @@ site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot_pointsonly
 
 site_coal_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CO2_per_g_soil",
+                  yval = "ug_C_CO2_per_g_soil_per_day",
                   xval = "PreIncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
@@ -922,7 +996,7 @@ samples_resp %>%
   filter(!is.na(umol_CO2_per_molAir)) %>%
   filter(IncubationDay >= 0) %>%
   mutate(`Jar has gone anoxic` = ifelse(umol_CO2_per_molAir < 20000, F, T)) %>%
-  ggplot(aes(x = IncubationTime/24, y = umol_CO2_per_molAir)) +
+  ggplot(aes(x = IncubationTime/(24*60*60), y = umol_CO2_per_molAir)) +
   geom_point(aes(color = `Jar has gone anoxic`), alpha = 0.5) +
   geom_text_repel(aes(label = SampleID)) +
   geom_hline(yintercept = 20000, color = "#B72F40", linetype = "dashed") +
@@ -939,7 +1013,7 @@ samples_resp %>%
 
 ```{r}
 plot_resp_TEA_temp <- function(resp_dat = QC_group_by_site_coal,
-                      yval = "ug_C_CH4_per_g_soil",
+                      yval = "ug_C_CH4_per_g_soil_per_day",
                       xval = "IncubationDay",
                       summary_plot = T,
                       jar_labels = F,
@@ -1007,7 +1081,7 @@ plot_resp_TEA_temp <- function(resp_dat = QC_group_by_site_coal,
     summary_plot <- summary_plot +
       geom_point(data = samples_resp_plot,
                aes(y = !!ycolumn, x = !!xcolumn, shape = !!shape_var)) +
-      facet_grid(`Incubation Temp`~ TEA)
+      facet_grid(TEA ~`Incubation Temp`, scales = "free_y")
     points_title = "_all_points"
   }
     
@@ -1054,8 +1128,8 @@ QC_group_by_site_coal <- samples_resp %>%
 
 # Create plots
 site_coal_ch4_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil",
-                  xval = "PreIncubationDay",
+                  yval = "ug_C_CH4_per_g_soil_per_day",
+                  xval = "IncubationDay",
                   summary_plot = T,
                   jar_labels = F, 
                   all_points = T,
@@ -1065,8 +1139,8 @@ site_coal_ch4_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot
 
 site_coal_co2_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
-                   yval = "ug_C_CO2_per_g_soil",
-                   xval = "PreIncubationDay",
+                   yval = "ug_C_CO2_per_g_soil_per_day",
+                   xval = "IncubationDay",
                    summary_plot = T,
                    jar_labels = F,
                    all_points = T,
@@ -1076,7 +1150,7 @@ site_coal_co2_plot
 
 site_coal_percCH4_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
                   yval = "PercentCH4",
-                  xval = "PreIncubationDay",
+                  xval = "IncubationDay",
                   summary_plot = T,
                   jar_labels = F, 
                   all_points = T,
@@ -1086,8 +1160,8 @@ site_coal_percCH4_plot <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
 site_coal_percCH4_plot
 
 site_coal_ch4_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil",
-                  xval = "PreIncubationDay",
+                  yval = "ug_C_CH4_per_g_soil_per_day",
+                  xval = "IncubationDay",
                   jar_labels = T, 
                   all_points = T,
                   GroupingVars = c("TEA", "Incubation Temp", 
@@ -1095,8 +1169,8 @@ site_coal_ch4_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
 site_coal_ch4_plot_label
 
 site_coal_co2_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
-                   yval = "ug_C_CO2_per_g_soil",
-                   xval = "PreIncubationDay",
+                   yval = "ug_C_CO2_per_g_soil_per_day",
+                   xval = "IncubationDay",
                    jar_labels = T,
                    all_points = T,
                   GroupingVars = c("TEA", "Incubation Temp", 
@@ -1105,7 +1179,7 @@ site_coal_co2_plot_label
 
 site_coal_percCH4_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
                    yval = "PercentCH4",
-                   xval = "PreIncubationDay",
+                   xval = "IncubationDay",
                    jar_labels = T,
                    all_points = T,                  
                    GroupingVars = c("TEA", "Incubation Temp", 
@@ -1113,8 +1187,8 @@ site_coal_percCH4_plot_label <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_c
 site_coal_percCH4_plot_label
 
 site_coal_ch4_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CH4_per_g_soil",
-                  xval = "PreIncubationDay",
+                  yval = "ug_C_CH4_per_g_soil_per_day",
+                  xval = "IncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
                   all_points = T,
@@ -1124,8 +1198,8 @@ site_coal_ch4_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_
 site_coal_ch4_plot_pointsonly
 
 site_coal_co2_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
-                  yval = "ug_C_CO2_per_g_soil",
-                  xval = "PreIncubationDay",
+                  yval = "ug_C_CO2_per_g_soil_per_day",
+                  xval = "IncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
                   all_points = T,                  
@@ -1135,13 +1209,38 @@ site_coal_co2_plot_pointsonly
 
 site_coal_percCH4_plot_pointsonly <- plot_resp_TEA_temp(resp_dat = QC_group_by_site_coal,
                   yval = "PercentCH4",
-                  xval = "PreIncubationDay",
+                  xval = "IncubationDay",
                   summary_plot = F,
                   jar_labels = F, 
                   all_points = T,                  
                   GroupingVars = c("TEA", "Incubation Temp", 
                                    "SiteAbbrPermCoal"))
-site_coal_percCH4_plot_pointsonly
+site_coal_percCH4_plot_pointsonly 
+
+
+QC_group_by_site_coal %>%
+  filter_out(Timestamp == "2026-04-30 10:13:00") %>%
+#   filter_out(JarIDNum == "225" & Date == "2026-04-30") %>%
+      ggplot(aes(y = ug_C_CH4_per_g_soil_per_day, x = IncubationDay, color = `Incubation Temp`)) +
+      scale_shape_manual(values = c(21,16,24,17)) +
+      scale_color_manual(breaks = temp_levels, values = temp_colors) +
+      geom_line(aes(group = JarIDNum)) +
+      geom_text_repel(aes(group = JarIDNum, label = JarIDNum)) +
+      geom_point(aes(shape = SiteAbbrPermCoal)) +
+      facet_grid(TEA ~`Incubation Temp`)
+
+QC_group_by_site_coal %>%
+  filter_out(Timestamp == "2026-04-30 10:13:00") %>%
+      ggplot(aes(y = ug_C_CO2_per_g_soil_per_day, x = IncubationDay, color = `Incubation Temp`)) +
+      scale_shape_manual(values = c(21,16,24,17)) +
+      scale_color_manual(breaks = temp_levels, values = temp_colors) +
+      geom_line(aes(group = JarIDNum)) +
+      geom_point(aes(shape = SiteAbbrPermCoal)) +
+      geom_text_repel(aes(group = JarIDNum, label = JarIDNum)) +
+      facet_grid(TEA ~`Incubation Temp`, scales = "free_y")
+  
+
+
 ```
 
 

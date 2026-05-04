@@ -79,6 +79,8 @@ inc_start_raw <- readxl::read_excel(path = inc_start_times,
 all_jars <- bind_rows(healy_jars, ice_cut_jars) %>%
   # Remove any columns that are unnamed
   select(!matches("\\.\\.\\..{1,3}")) %>%
+  # Calculate Subsample weight
+  mutate(Mass_of_PreInc_subsample_g = `DNA Subsample and Tube Weight (g) between PreInc and Incubation` - `DNA Subsample Tube Weight (g) between PreInc and Incubation`) %>%
   left_join(inc_start_raw %>% select(`Jar ID`, `IncubationStart`),
             by = c("SampleID" = "Jar ID")) %>%
   # add in volume of jar depending on manufacturer
