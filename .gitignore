@@ -6,3 +6,6 @@ README.html
 PicarroLicorLoopCode.Rproj
 Veff_calculations/*.html
 .positai
+.DS_Store
+Incubation/.DS_Store
+*.Rproj
