@@ -21,7 +21,8 @@ library(ggrepel)
 library(broom)
 library(readxl)
 library(dplyr)
-library(readxl) # added on 9NOV2026 as a workaround for not being able to convert the new jar labeling and loading spreadsheet to a .tsv file.
+library(readxl) # added on 9NOV2026 to read the metadata file downloaded on 9NOV2026 (updated from the previous version)
+library(readr) # added to convert metadata file to .tsv from .xlsx
 
 # Set ggplot theme
 theme_set(theme_bw())
@@ -45,7 +46,7 @@ This script provides a guide for how to perform QA/QC on respiration measurement
 fp_outputs <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation"
 
 # location of sample metadata sheet
-fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/26SEI_JarLabelingandLoadingSpreadsheet_9NOV2026.xlsx"
+fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.xlsx"
 
 # location of sample respiration spreadsheets
 fp_licor <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/Licor_usable"
@@ -96,8 +97,14 @@ First we'll read in the sample metadata and jar information. This is important b
 
 ```{r read-sample-data}
 # Reading in sample metadata information
+
+# Converting to .tsv to avoid errors associated with using .xlsx in R
+readr::write_tsv(read_excel(fp_metadata), sub("\\.xlsx$", ".tsv", fp_metadata))
+
+fp_metadata <- fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.tsv"
+
 jar_info_raw <- read_tsv(file = fp_metadata) %>%
-  mutate(across(JarNumber:`Specimen Cup Number`, ~ as.factor(.x))) %>%
+  mutate(across("JarNumber":`Specimen Cup Number`, ~ as.factor(.x))) %>%
   rename(AnoxicOxic =`Anoxic/Oxic?`)
 
 # Extract incubation start times
