@@ -109,12 +109,12 @@ jar_info_raw <- read_tsv(file = fp_metadata) %>%
 
 # 9SEP2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
 library(hms)
-jar_info_time <- jar_info_raw %>% 
+jar_info_time_formatted <- jar_info_raw %>% 
   mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC"))) # 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
 
 # Extract incubation start times
-jar_incubation_time_info1 <- jar_info_raw %>%
-  select(JarIDNum, contains("IncubationStart")) %>%
+jar_incubation_time_formatted_info <- jar_info_time_formatted %>%
+  select(JarNumber, contains(c("PreInc Start Date and Time", "Incubation Start Date", "Incubation Start Time"))) %>%
   mutate(PreIncubationStart = force_tz(PreIncubationStart, tz = "America/New_York"),
          IncubationStart = case_when(
            `Incubation Round` == 1 & `Round Subset (A,B,C,D)` == "A" ~ as_datetime("2026-04-20 12:00:00", tz = "America/New_York"),
