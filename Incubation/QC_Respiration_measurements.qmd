@@ -113,7 +113,7 @@ jar_info_time_formatted <- jar_info_raw %>%
   mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")))# 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
 
 jar_info_time_formatted <- jar_info_time_formatted %>% 
-  drop_na(`Incubation Start Date`, `Incubation Start Time`) # 20 observations were NA through all variables
+  drop_na(`Incubation Start Date`, `Incubation Start Time`, `JarNumber`) # 20 observations were NA through all variables
 
 jar_info_time_formatted$IncubationStart <- ymd_hms(paste(jar_info_time_formatted$`Incubation Start Date`, jar_info_time_formatted$`Incubation Start Time`), tz = "UTC")
 
@@ -125,12 +125,16 @@ jar_incubation_time_formatted_info <- jar_info_time_formatted %>%
                                          "America/New_York"),
          IncubationStart = force_tz(`IncubationStart`, tz = "America/New_York"))
 
+# renaming JarNumber to JarIDNum to match the function to be built
+jar_incubation_time_formatted_info <- jar_incubation_time_formatted_info %>% 
+  rename(JarIDNum = JarNumber)
+
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 ## TS -- 28OCT2026 -- check temp DO NOT USE PLANNED TEMP OR PLANNED TEA. remove these columns. Add incubation day as well
 jar_info <- jar_info_raw %>%
   select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`)
-## 12NOV2026 -- TS -- headspace volume is not a column in the metadata sheet currently (not in the excel sheet), and incubation day is calculated later, so I can't add that to jar_info att
+## 12NOV2026 -- TS -- headspace volume is not a column in the metadata sheet currently (not in the excel sheet), and incubation day is calculated later, so I can't add that to jar_info att. incubation day can't be added to this df at all, because it stems from a metadata file, not respiration data.
 ```
 
 If you set the options above to use the Ernakovich 2017 data, we'll read it in and prepare it for comparison.
@@ -191,7 +195,7 @@ Below we create a function for reading in respiration data and doing basic refor
 read_respiration_files <- function(resp_file_path_licor = NULL,
                                    resp_file_path_picarro = NULL, 
                                    sample_id_column = "Jar Number",
-                                   incubation_start=jar_incubation_time_info,
+                                   incubation_start=jar_incubation_time_formatted_info,
                                    file_pattern = ".xlsx") {
 #' Function: read_respiration_files()
 #' Takes a folder containing either Picarro or Licor-style respiration templates
@@ -258,7 +262,7 @@ read_respiration_files <- function(resp_file_path_licor = NULL,
       # Add in measurement instrument and fix the timezone of time columns
       mutate(MeasurementInstrument = "Licor",
              `Time Incubation Jar was Last Flushed (Leave blank for standard curve)` = force_tz(`Time Incubation Jar was Last Flushed (Leave blank for standard curve)`, tz = "America/New_York"), 
-             Timestamp = as_datetime(Timestamp, tz = "America/New_York")) # need to check that this is correct!
+             Timestamp = as_datetime(Timestamp, tz = "America/New_York"))
     
     # Change names to match variables between licor and picarro
     resp_raw_licor <- resp_raw_licor %>%
@@ -393,7 +397,7 @@ Run the function to load the input.
 resp_dat_raw <- read_respiration_files(
   resp_file_path_licor = fp_licor,
   resp_file_path_picarro = fp_picarro,
-  incubation_start = jar_incubation_time_info,
+  incubation_start = jar_incubation_time_formatted_info,
   file_pattern = ".xlsx")
 
 ```
