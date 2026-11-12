@@ -98,7 +98,7 @@ First we'll read in the sample metadata and jar information. This is important b
 ```{r read-sample-data}
 # Reading in sample metadata information
 
-# 9SEP2026 -- TS -- Converting to .tsv to avoid errors associated with using .xlsx in R
+# 9SEP2026 -- TS -- Converting file to .tsv
 readr::write_tsv(read_excel(fp_metadata), sub("\\.xlsx$", ".tsv", fp_metadata))
 
 fp_metadata <- fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.tsv"
@@ -110,34 +110,27 @@ jar_info_raw <- read_tsv(file = fp_metadata) %>%
 # 9SEP2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
 library(hms)
 jar_info_time_formatted <- jar_info_raw %>% 
-  mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC"))) # 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
+  mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")))# 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
+
+jar_info_time_formatted <- jar_info_time_formatted %>% 
+  drop_na(`Incubation Start Date`, `Incubation Start Time`) # 20 observations were NA through all variables
+
+jar_info_time_formatted$IncubationStart <- ymd_hms(paste(jar_info_time_formatted$`Incubation Start Date`, jar_info_time_formatted$`Incubation Start Time`), tz = "UTC")
+
 
 # Extract incubation start times
-jar_incubation_time_formatted_info <- jar_info_time_formatted %>%
-  select(JarNumber, contains(c("PreInc Start Date and Time", "Incubation Start Date", "Incubation Start Time"))) %>%
-  mutate(PreIncubationStart = force_tz(PreIncubationStart, tz = "America/New_York"),
-         IncubationStart = case_when(
-           `Incubation Round` == 1 & `Round Subset (A,B,C,D)` == "A" ~ as_datetime("2026-04-20 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 1 & `Round Subset (A,B,C,D)` == "B" ~ as_datetime("2026-04-21 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 1 & `Round Subset (A,B,C,D)` == "C" ~ as_datetime("2026-04-25 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 1 & `Round Subset (A,B,C,D)` == "D" ~ as_datetime("2026-04-26 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 2 & `Round Subset (A,B,C,D)` == "A" ~ as_datetime("2026-05-22 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 2 & `Round Subset (A,B,C,D)` == "B" ~ as_datetime("2026-05-23 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 2 & `Round Subset (A,B,C,D)` == "C" ~ as_datetime("2026-05-24 12:00:00", tz = "America/New_York"),
-           `Incubation Round` == 2 & `Round Subset (A,B,C,D)` == "D" ~ as_datetime("2026-05-25 12:00:00", tz = "America/New_York")
-         ))
-## TS -- 28OCT -- `IncubationStart` originally had a single placeholder datetime, so it could not reflect the multiple start dates. I have changed it such that `IncubationStart` will reflect the incubation start datetime for each round and round subset based off the SEI26_calendar excel sheet.
-## TS -- 28OCT2026 -- add start times
-## TS -- 28OCT2026 -- switched from daylight savings to not daylight savings, need to change that in the code DONT WORRY ABOUT RN
+jar_incubation_time_formatted_info <- jar_info_time_formatted %>% 
+  select(JarNumber, contains(c("PreInc Start Date and Time", "IncubationStart", "Incubation Start Date", "Incubation Start Time", "Incubation Round", "Round Subset (A,B,C,D)"))) %>% 
+  mutate(PreIncubationStart = force_tz(`PreInc Start Date and Time`, tz =
+                                         "America/New_York"),
+         IncubationStart = force_tz(`IncubationStart`, tz = "America/New_York"))
 
-
-
-jar_incubation_time_info <- na.omit(jar_incubation_time_info1) # added 17SEP2026 to remove jars that had NA timestamps (Controls)
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 ## TS -- 28OCT2026 -- check temp DO NOT USE PLANNED TEMP OR PLANNED TEA. remove these columns. Add incubation day as well
 jar_info <- jar_info_raw %>%
-  select(SampleID:Site, `Mass of Soil(g Lab Scale)`, GSC_Perc, HeadspaceVolume)
+  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`)
+## 12NOV2026 -- TS -- headspace volume is not a column in the metadata sheet currently (not in the excel sheet), and incubation day is calculated later, so I can't add that to jar_info att
 ```
 
 If you set the options above to use the Ernakovich 2017 data, we'll read it in and prepare it for comparison.
