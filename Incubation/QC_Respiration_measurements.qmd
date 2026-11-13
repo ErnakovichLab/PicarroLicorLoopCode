@@ -107,19 +107,23 @@ jar_info_raw <- read_tsv(file = fp_metadata) %>%
   mutate(across("Jar #":`Specimen Cup Number`, ~ as.factor(.x))) %>%
   rename(AnoxicOxic =`Anoxic/Oxic?`)
 
+
 # 9SEP2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
 library(hms)
-jar_info_time_formatted <- jar_info_raw %>% 
+jar_info_correct_time <- jar_info_raw %>% 
   mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")))# 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
 
-jar_info_time_formatted <- jar_info_time_formatted %>% 
-  drop_na(`Incubation Start Date`, `Incubation Start Time`, `Jar #`) # 20 observations were NA through all variables
+jar_info_correct_time <- jar_info_correct_time %>% 
+  rename(JarNumber = `Jar #`)
 
-jar_info_time_formatted$IncubationStart <- ymd_hms(paste(jar_info_time_formatted$`Incubation Start Date`, jar_info_time_formatted$`Incubation Start Time`), tz = "UTC")
+jar_info_correct_time <- jar_info_correct_time %>% 
+  drop_na(`Incubation Start Date`, `Incubation Start Time`, `JarNumber`) # 20 observations were NA through all variables
+
+jar_info_correct_time$IncubationStart <- ymd_hms(paste(jar_info_time_formatted$`Incubation Start Date`, jar_info_time_formatted$`Incubation Start Time`), tz = "UTC")
 
 
 # Extract incubation start times
-jar_incubation_time_formatted_info <- jar_info_time_formatted %>% 
+jar_incubation_info <- jar_info_time_formatted %>% 
   select(`Jar #`, contains(c("PreInc Start Date and Time", "IncubationStart", "Incubation Start Date", "Incubation Start Time", "Incubation Round", "Round Subset (A,B,C,D)"))) %>% 
   mutate(PreIncubationStart = force_tz(`PreInc Start Date and Time`, tz =
                                          "America/New_York"),
@@ -419,8 +423,8 @@ Next we need to calculate the respiration rates. In brief this means we need to:
 samples_resp <- resp_dat_raw$resp_raw %>%
   filter(SampleType == "Sample" | SampleType == "Vial Sample") %>%
   # Convert into a per-gram basis, based on Jar number
-  left_join(jar_info, by = c("JarIDNum")) %>%
-  mutate(jar_headspace_mL = HeadspaceVolume, # need to correct for specimen cup volume
+  left_join(jar_info, by = c("Jar #")) %>%
+  mutate(jar_headspace_mL = HeadspacemL_corrected,
          soil_weight_dry = `Mass of Soil(g Lab Scale)` * (GSC_Perc/100),
          MolAir_headspace = (1/1000)*(jar_headspace_mL * AbsoluteJarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
          umol_CO2_in_headspace = jar_headspace_mL * (`TotalCO2 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
