@@ -101,10 +101,10 @@ First we'll read in the sample metadata and jar information. This is important b
 # 9SEP2026 -- TS -- Converting file to .tsv
 readr::write_tsv(read_excel(fp_metadata), sub("\\.xlsx$", ".tsv", fp_metadata))
 
-fp_metadata <- fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.tsv"
+fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.tsv"
 
 jar_info_raw <- read_tsv(file = fp_metadata) %>%
-  mutate(across("JarNumber":`Specimen Cup Number`, ~ as.factor(.x))) %>%
+  mutate(across("Jar #":`Specimen Cup Number`, ~ as.factor(.x))) %>%
   rename(AnoxicOxic =`Anoxic/Oxic?`)
 
 # 9SEP2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
@@ -113,27 +113,27 @@ jar_info_time_formatted <- jar_info_raw %>%
   mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")))# 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
 
 jar_info_time_formatted <- jar_info_time_formatted %>% 
-  drop_na(`Incubation Start Date`, `Incubation Start Time`, `JarNumber`) # 20 observations were NA through all variables
+  drop_na(`Incubation Start Date`, `Incubation Start Time`, `Jar #`) # 20 observations were NA through all variables
 
 jar_info_time_formatted$IncubationStart <- ymd_hms(paste(jar_info_time_formatted$`Incubation Start Date`, jar_info_time_formatted$`Incubation Start Time`), tz = "UTC")
 
 
 # Extract incubation start times
 jar_incubation_time_formatted_info <- jar_info_time_formatted %>% 
-  select(JarNumber, contains(c("PreInc Start Date and Time", "IncubationStart", "Incubation Start Date", "Incubation Start Time", "Incubation Round", "Round Subset (A,B,C,D)"))) %>% 
+  select(`Jar #`, contains(c("PreInc Start Date and Time", "IncubationStart", "Incubation Start Date", "Incubation Start Time", "Incubation Round", "Round Subset (A,B,C,D)"))) %>% 
   mutate(PreIncubationStart = force_tz(`PreInc Start Date and Time`, tz =
                                          "America/New_York"),
          IncubationStart = force_tz(`IncubationStart`, tz = "America/New_York"))
 
 # renaming JarNumber to JarIDNum to match the function to be built
 jar_incubation_time_formatted_info <- jar_incubation_time_formatted_info %>% 
-  rename(JarIDNum = JarNumber)
+  rename(JarIDNum = `Jar #`)
 
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 ## TS -- 28OCT2026 -- check temp DO NOT USE PLANNED TEMP OR PLANNED TEA. remove these columns. Add incubation day as well
 jar_info <- jar_info_raw %>%
-  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`)
+  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `HeadspacemL_corrected`)
 ## 12NOV2026 -- TS -- headspace volume is not a column in the metadata sheet currently (not in the excel sheet), and incubation day is calculated later, so I can't add that to jar_info att. incubation day can't be added to this df at all, because it stems from a metadata file, not respiration data.
 ```
 
