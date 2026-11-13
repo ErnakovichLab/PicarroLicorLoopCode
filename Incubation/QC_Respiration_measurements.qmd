@@ -119,26 +119,30 @@ jar_info_correct_time <- jar_info_correct_time %>%
 jar_info_correct_time <- jar_info_correct_time %>% 
   drop_na(`Incubation Start Date`, `Incubation Start Time`, `JarNumber`) # 20 observations were NA through all variables
 
-jar_info_correct_time$IncubationStart <- ymd_hms(paste(jar_info_time_formatted$`Incubation Start Date`, jar_info_time_formatted$`Incubation Start Time`), tz = "UTC")
+jar_info_correct_time$IncubationStart <- ymd_hms(paste(jar_info_correct_time$`Incubation Start Date`, jar_info_correct_time$`Incubation Start Time`), tz = "UTC")
 
 
 # Extract incubation start times
-jar_incubation_info <- jar_info_time_formatted %>% 
-  select(`Jar #`, contains(c("PreInc Start Date and Time", "IncubationStart", "Incubation Start Date", "Incubation Start Time", "Incubation Round", "Round Subset (A,B,C,D)"))) %>% 
+jar_incubation_time_info <- jar_info_correct_time %>% 
+  select("JarNumber", contains(c("PreInc Start Date and Time", "IncubationStart", "Incubation Start Date", "Incubation Start Time", "Incubation Round", "Round Subset (A,B,C,D)"))) %>% 
   mutate(PreIncubationStart = force_tz(`PreInc Start Date and Time`, tz =
                                          "America/New_York"),
          IncubationStart = force_tz(`IncubationStart`, tz = "America/New_York"))
 
 # renaming JarNumber to JarIDNum to match the function to be built
-jar_incubation_time_formatted_info <- jar_incubation_time_formatted_info %>% 
-  rename(JarIDNum = `Jar #`)
+jar_incubation_time_info <- jar_incubation_time_info %>% 
+  rename(JarIDNum = "JarNumber")
 
 
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 ## TS -- 28OCT2026 -- check temp DO NOT USE PLANNED TEMP OR PLANNED TEA. remove these columns. Add incubation day as well
 jar_info <- jar_info_raw %>%
-  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `HeadspacemL_corrected`)
-## 12NOV2026 -- TS -- headspace volume is not a column in the metadata sheet currently (not in the excel sheet), and incubation day is calculated later, so I can't add that to jar_info att. incubation day can't be added to this df at all, because it stems from a metadata file, not respiration data.
+  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `HeadspacemL_corrected`) %>% 
+  rename(JarIDNum = `Jar #`,
+         GSC_Perc = `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`) %>% 
+  mutate(GSC_Perc = as.numeric(GSC_Perc))
+## 12NOV2026 -- TS --  incubation day is calculated later, so it can't be added to this df because this df stems from a metadata file, not respiration data.
+## 13NOV2026 -- TS -- there are still 131 observations with no GSC content. Metadata file redownloaded this morning.
 ```
 
 If you set the options above to use the Ernakovich 2017 data, we'll read it in and prepare it for comparison.
@@ -199,7 +203,7 @@ Below we create a function for reading in respiration data and doing basic refor
 read_respiration_files <- function(resp_file_path_licor = NULL,
                                    resp_file_path_picarro = NULL, 
                                    sample_id_column = "Jar Number",
-                                   incubation_start=jar_incubation_time_formatted_info,
+                                   incubation_start=jar_incubation_time_info,
                                    file_pattern = ".xlsx") {
 #' Function: read_respiration_files()
 #' Takes a folder containing either Picarro or Licor-style respiration templates
@@ -401,7 +405,7 @@ Run the function to load the input.
 resp_dat_raw <- read_respiration_files(
   resp_file_path_licor = fp_licor,
   resp_file_path_picarro = fp_picarro,
-  incubation_start = jar_incubation_time_formatted_info,
+  incubation_start = jar_incubation_time_info,
   file_pattern = ".xlsx")
 
 ```
@@ -423,9 +427,9 @@ Next we need to calculate the respiration rates. In brief this means we need to:
 samples_resp <- resp_dat_raw$resp_raw %>%
   filter(SampleType == "Sample" | SampleType == "Vial Sample") %>%
   # Convert into a per-gram basis, based on Jar number
-  left_join(jar_info, by = c("Jar #")) %>%
+  left_join(jar_info, by = "JarIDNum") %>%
   mutate(jar_headspace_mL = HeadspacemL_corrected,
-         soil_weight_dry = `Mass of Soil(g Lab Scale)` * (GSC_Perc/100),
+         soil_weight_dry = `Mass of Soil(g Lab Scale)` * (`GSC_Perc`), # was originally `(`GSC_Perc` / 100), but GSC_Perc is already in decimal form, so it shouldn't be divided by 100
          MolAir_headspace = (1/1000)*(jar_headspace_mL * AbsoluteJarPressure_atm)/(GasConstant_R * `Room Temperature (K)`),
          umol_CO2_in_headspace = jar_headspace_mL * (`TotalCO2 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
          umol_CH4_in_headspace = jar_headspace_mL * (`TotalCH4 (uMol)`)/`Volume of sample or standard (mL of gas measured)`,
