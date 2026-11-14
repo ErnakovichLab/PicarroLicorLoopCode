@@ -437,15 +437,23 @@ samples_resp <- resp_dat_raw$resp_raw %>%
          umol_CH4_per_molAir = umol_CH4_in_headspace/MolAir_headspace,
          ug_C_CO2_in_headspace = jar_headspace_mL * (`TotalCO2 (uMol)` * 12.01)/`Volume of sample or standard (mL of gas measured)`,
          ug_C_CH4_in_headspace = jar_headspace_mL * (`TotalCH4 (uMol)` * 12.01)/`Volume of sample or standard (mL of gas measured)`,
-         ug_C_CO2_per_g_soil = ug_C_CO2_in_headspace/soil_weight_dry,
-         ug_C_CH4_per_g_soil = ug_C_CH4_in_headspace/soil_weight_dry) %>%
+         ug_C_CO2_per_g_dry_soil = ug_C_CO2_in_headspace/soil_weight_dry,
+         ug_C_CH4_per_g_dry_soil = ug_C_CH4_in_headspace/soil_weight_dry) %>%
   # make it a rate just using temporary numbers here
-  mutate(ug_C_CO2_per_g_soil_per_hour = ug_C_CO2_per_g_soil/as.numeric(TimeSinceZerod, unit = "hours"),
-         ug_C_CO2_per_g_soil_per_day = ug_C_CO2_per_g_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
-  mutate(ug_C_CH4_per_g_soil_per_hour = ug_C_CH4_per_g_soil/as.numeric(TimeSinceZerod, unit = "hours"),
-         ug_C_CH4_per_g_soil_per_day = ug_C_CH4_per_g_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
-    mutate(PercentCH4 = `ug_C_CH4_per_g_soil`/(`ug_C_CH4_per_g_soil` + `ug_C_CO2_per_g_soil`))
+  mutate(ug_C_CO2_per_g_dry_soil_per_hour = ug_C_CO2_per_g_dry_soil/as.numeric(TimeSinceZerod, unit = "hours")) %>% 
+  mutate(cumulative_ug_C_CO2_per_g_soil = ug_C_CO2_per_g_dry_soil_per_hour * TimeSinceZerod,
+         ug_C_CO2_per_g_dry_soil_per_day = ug_C_CO2_per_g_dry_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
+  mutate(ug_C_CH4_per_g_dry_soil_per_hour = ug_C_CH4_per_g_dry_soil/as.numeric(TimeSinceZerod, unit = "hours"),
+         ug_C_CH4_per_g_dry_soil_per_day = ug_C_CH4_per_g_dry_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
+    mutate(PercentCH4 = `ug_C_CH4_per_g_dry_soil`/(`ug_C_CH4_per_g_dry_soil` + `ug_C_CO2_per_g_dry_soil`))
 
+
+# Samples resp rate table for Maggie D
+samples_resp_rate_table <- samples_resp %>% 
+  select(`Jar Number`, `IncubationStart`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, `IncubationDay`, `IncubationTime`, `umol_CO2_in_headspace`, `umol_CH4_in_headspace`, `umol_CO2_per_molAir`, `umol_CH4_per_molAir`, `ug_C_CO2_in_headspace`, `ug_C_CH4_in_headspace`, `ug_C_CO2_per_g_dry_soil`, `ug_C_CH4_per_g_dry_soil`, `ug_C_CO2_per_g_dry_soil_per_hour`, `ug_C_CO2_per_g_dry_soil_per_day`, `ug_C_CH4_per_g_dry_soil_per_hour`, `ug_C_CH4_per_g_dry_soil_per_day`)
+
+library(writexl)
+write_xlsx(samples_resp_rate_table, file.path(fp_tabout, "samples_resp_rate_table.xlsx"))
 
 ```
 
