@@ -46,7 +46,7 @@ This script provides a guide for how to perform QA/QC on respiration measurement
 fp_outputs <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation"
 
 # location of sample metadata sheet
-fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.xlsx"
+fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/26SEI_JarLabelingandLoadingSpreadsheet(1).xlsx"
 
 # location of sample respiration spreadsheets
 fp_licor <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/Licor_usable"
@@ -96,22 +96,17 @@ dir.create(fp_tabout)
 First we'll read in the sample metadata and jar information. This is important because it contains the pre-incubation and incubation start times.
 
 ```{r read-sample-data}
-# Reading in sample metadata information
 
-# 9SEP2026 -- TS -- Converting file to .tsv
-readr::write_tsv(read_excel(fp_metadata), sub("\\.xlsx$", ".tsv", fp_metadata))
-
-fp_metadata <- "~/Desktop/PhD/Soil Ecology Incubation/SEI26_resp_code/Incubation/SEI26_jar_metadata.tsv"
-
-jar_info_raw <- read_tsv(file = fp_metadata) %>%
+# 18NOV2026 -- TS -- the dates in the new metadata file provided by Maggie D were being read in incorrectly, so I changed the code to read in the excel sheet directly.
+jar_info_raw <- read_excel(fp_metadata) %>%
   mutate(across("Jar #":`Specimen Cup Number`, ~ as.factor(.x))) %>%
   rename(AnoxicOxic =`Anoxic/Oxic?`)
 
-
-# 9SEP2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
+# 9NOV2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
 library(hms)
 jar_info_correct_time <- jar_info_raw %>% 
-  mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")))# 9SEP2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
+  mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")), # 9NOV2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
+         `Incubation Start Date` = as.Date(as.numeric(`Incubation Start Date`), origin = "1899-12-30")) # 18NOV2026added this line after getting the new metadata sheet from Maggie because the date was coming in as a serial number, not an actual date. 
 
 jar_info_correct_time <- jar_info_correct_time %>% 
   rename(JarNumber = `Jar #`)
@@ -137,10 +132,11 @@ jar_incubation_time_info <- jar_incubation_time_info %>%
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 ## TS -- 28OCT2026 -- check temp DO NOT USE PLANNED TEMP OR PLANNED TEA. remove these columns. Add incubation day as well
 jar_info <- jar_info_raw %>%
-  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `HeadspacemL_corrected`) %>% 
+  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `Jar Manufacturer`) %>% 
   rename(JarIDNum = `Jar #`,
          GSC_Perc = `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`) %>% 
-  mutate(GSC_Perc = as.numeric(GSC_Perc))
+  mutate(GSC_Perc = as.numeric(GSC_Perc)) %>% 
+  mutate(HeadspacemL = if_else(`Jar Manufacturer` == "Ball", 249.253, 250.29)) # these values came from "10DEC2025_Incubation_Jar_Volume_Calculation" excel sheet in the sharepoint
 ## 12NOV2026 -- TS --  incubation day is calculated later, so it can't be added to this df because this df stems from a metadata file, not respiration data.
 ## 13NOV2026 -- TS -- there are still 131 observations with no GSC content. Metadata file redownloaded this morning.
 ```
