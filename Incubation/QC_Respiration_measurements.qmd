@@ -102,7 +102,7 @@ jar_info_raw <- read_excel(fp_metadata) %>%
   mutate(across("Jar #":`Specimen Cup Number`, ~ as.factor(.x))) %>%
   rename(AnoxicOxic =`Anoxic/Oxic?`)
 
-# 9NOV2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time.
+# 9NOV2026 -- TS -- I have to fix the incubation start start time. The column currently shows date time, with the wrong date but correct time. The code below specifies the variable should be time in hours, minutes, seconds in UTC time (it'll be converted to eastern later, which accounts for DST)
 library(hms)
 jar_info_correct_time <- jar_info_raw %>% 
   mutate(`Incubation Start Time` = as_hms(format(`Incubation Start Time`, "%H:%M:%S", tz = "UTC")), # 9NOV2026 -- TS -- using UTC here keeps the time exactly as it is on the spreadsheet, I will force Eastern time later to reflect the time zone and daylight savings
@@ -468,22 +468,22 @@ standard_readings <- resp_dat_raw$resp_raw %>%
 1)  Any samples NA? figure out why before moving on:
 
 ```{r}
-rate_cols <- c("ug_C_CO2_per_g_soil_per_hour", "ug_C_CO2_per_g_soil_per_day") 
+rate_cols <- c("ug_C_CO2_per_g_dry_soil_per_hour", "ug_C_CO2_per_g_dry_soil_per_day") 
 
-picarro_rate_cols <- c("ug_C_CH4_per_g_soil_per_hour","ug_C_CH4_per_g_soil_per_day") 
+picarro_rate_cols <- c("ug_C_CH4_per_g_dry_soil_per_hour","ug_C_CH4_per_g_dry_soil_per_day") 
 
 # Check co2 measurements
 controls <- samples_resp %>%
   select(SampleType, JarIDNum, MeasurementInstrument, Timestamp, 
          all_of(rate_cols), everything()) %>%
-  filter(if_any(all_of(rate_cols), ~is.na(.x))) #%>% View()
+  filter(if_any(all_of(rate_cols), ~is.na(.x))) %>% View() # 680 entries as of 19NOV2026 BUT, almost all are from measurement days after the incubation ended, and the ones that 
 
 # Check picarro-only measurements
 samples_resp %>%
   filter(MeasurementInstrument == "picarro") %>%
   select(SampleType, JarIDNum, MeasurementInstrument, Timestamp, 
          all_of(picarro_rate_cols), everything()) %>%
-  filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% View()
+  filter(if_any(all_of(picarro_rate_cols), ~is.na(.x))) %>% View() # 104 NAs, all controls
 
 ```
 
