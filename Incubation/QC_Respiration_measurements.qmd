@@ -132,11 +132,12 @@ jar_incubation_time_info <- jar_incubation_time_info %>%
 # Extract data relevant for QC of samples, plotting, and calculation of rates 
 ## TS -- 28OCT2026 -- check temp DO NOT USE PLANNED TEMP OR PLANNED TEA. remove these columns. Add incubation day as well
 jar_info <- jar_info_raw %>%
-  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `Jar Manufacturer`) %>% 
+  select(`Jar ID`:Site, `Mass of Soil(g Lab Scale)`, `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`, `Jar Manufacturer`, `Mass of Soil, Buffer, and specimen cup (g Lab Scale)`) %>% 
   rename(JarIDNum = `Jar #`,
          GSC_Perc = `Gravimetric Soil Content % (Mass Dry Soil/Mass of Wet Soil)`) %>% 
   mutate(GSC_Perc = as.numeric(GSC_Perc)) %>% 
-  mutate(HeadspacemL = if_else(`Jar Manufacturer` == "Ball", 249.253, 250.29)) # these values came from "10DEC2025_Incubation_Jar_Volume_Calculation" excel sheet in the sharepoint
+  mutate(HeadspacemL = if_else(`Jar Manufacturer` == "Ball", 249.253, 250.29),
+         HeadspacemL_corrected = HeadspacemL - `Mass of Soil, Buffer, and specimen cup (g Lab Scale)`) # these values came from "10DEC2025_Incubation_Jar_Volume_Calculation" excel sheet in the sharepoint
 ## 12NOV2026 -- TS --  incubation day is calculated later, so it can't be added to this df because this df stems from a metadata file, not respiration data.
 ## 13NOV2026 -- TS -- there are still 131 observations with no GSC content. Metadata file redownloaded this morning.
 ```
@@ -447,6 +448,8 @@ samples_resp <- resp_dat_raw$resp_raw %>%
 # Samples resp rate table for Maggie D
 samples_resp_rate_table <- samples_resp %>% 
   select(`Jar Number`, `IncubationStart`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, `IncubationDay`, `IncubationTime`, `umol_CO2_in_headspace`, `umol_CH4_in_headspace`, `umol_CO2_per_molAir`, `umol_CH4_per_molAir`, `ug_C_CO2_in_headspace`, `ug_C_CH4_in_headspace`, `ug_C_CO2_per_g_dry_soil`, `ug_C_CH4_per_g_dry_soil`, `ug_C_CO2_per_g_dry_soil_per_hour`, `ug_C_CO2_per_g_dry_soil_per_day`, `ug_C_CH4_per_g_dry_soil_per_hour`, `ug_C_CH4_per_g_dry_soil_per_day`)
+
+
 
 library(writexl)
 write_xlsx(samples_resp_rate_table, file.path(fp_tabout, "samples_resp_rate_table.xlsx"))
