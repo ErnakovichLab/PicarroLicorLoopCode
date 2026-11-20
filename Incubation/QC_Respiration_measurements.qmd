@@ -483,14 +483,15 @@ end_dates <- tribble(
   mutate(end_date = as.Date(end_date))
 
 samples_resp_tmp <- samples_resp %>% 
-  filter(!(`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & Date > as.Date("2026-05-25")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & Date > as.Date("2026-05-26")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & Date > as.Date("2026-05-30")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" & Date > as.Date("2026-05-31")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & Date > as.Date("2026-06-26")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & Date > as.Date("2026-06-27")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & Date > as.Date("2026-06-28")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & Date > as.Date("2026-06-29")))
+  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` > as.Date("2026-05-25")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` > as.Date("2026-05-26")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-05-30")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" & `Date` > as.Date("2026-05-31")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` > as.Date("2026-06-26")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` > as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` > as.Date("2026-06-29")))) %>% 
+  select(`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`)
 
 wrong_days <- samples_resp_tmp %>% 
   filter(IncubationDay <= 0 | IncubationDay > 35) %>% 
