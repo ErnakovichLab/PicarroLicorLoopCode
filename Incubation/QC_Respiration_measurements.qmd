@@ -449,19 +449,32 @@ samples_resp <- resp_dat_raw$resp_raw %>%
 # 20NOV2026 -- TS -- first I'm going to ID the observations with the wrong jar IDs
 wrong_jar_ID <- samples_resp %>% 
   filter(str_detect(`Jar Number`, "-{2,}") |
-         str_detect(`Jar Number`, "^OC")) %>% 
+         str_detect(`Jar Number`, "^OC") |
+           str_detect(`Jar Number`, "^I")) %>% 
   select(`Jar Number`)
 
 # 20NOV2026 -- TS -- now I'm going to fix them in samples rest
 samples_resp <- samples_resp %>% 
   mutate(`Jar Number` = str_replace_all(`Jar Number`, "-{2,}", "-"),
-         `Jar Number` = str_replace(`Jar Number`, "^OC", "IC"))
+         `Jar Number` = str_replace(`Jar Number`, "^OC", "IC"),
+         `Jar Number` = str_replace(`Jar Number`, "^I", "IC"))
 
 # 20NOV2026 -- TS -- quick check
 wrong_jar_ID <- samples_resp %>% 
   filter(str_detect(`Jar Number`, "-{2,}") |
          str_detect(`Jar Number`, "^OC")) %>% 
   select(`Jar Number`) # 0 obs left
+
+wrong_jar_ID <- samples_resp %>% 
+  filter(!str_detect(`Jar Number`, "^(H|IC|C)-")) %>% 
+  select(`Jar Number`)
+
+samples_resp <- samples_resp %>% 
+  mutate(`Jar Number` = str_replace(`Jar Number`, "^ICC", "IC"))
+
+wrong_jar_ID <- samples_resp %>% 
+  filter(!str_detect(`Jar Number`, "^(H|IC|C)-")) %>% 
+  select(`Jar Number`)
 
 # 20NOC2026 -- TS -- there are a lot of observations that have a incubation day >35 (the length of the incubation), I'm going to ID those and figure out why that's happening.
 wrong_days <- samples_resp %>% 
@@ -668,7 +681,7 @@ summary(headspace_CO2_comp)
 
 hrly_CO2_comp <- lm(picarro_ug_C_CO2_per_g_dry_soil_per_hour ~ Licor_ug_C_CO2_per_g_dry_soil_per_hour*Date, 
                     data = licor_picarro_comparison)
-summary(hrly_CO2_comp) # 19NOV2026 -- TS -- NAs, need to be fixed
+summary(hrly_CO2_comp)
 
 ggplot(licor_picarro_comparison, 
        aes(x = Licor_ug_C_CO2_in_headspace, y = picarro_ug_C_CO2_in_headspace)) +
@@ -748,7 +761,7 @@ ggplot(licor_picarro_comparison %>% mutate(Date = as.factor(Date)),
 #still need to figure out R2
 #next time try to do rates and move past comparisons
 
-# controls_licor_picarro_comparison$picarro_TotalCO2 <- controls_licor_picarro_comparison$`picarro_TotalCO2 (ppm)`
+#controls_licor_picarro_comparison$picarro_TotalCO2 <- controls_licor_picarro_comparison$`picarro_TotalCO2 (ppm)`
 
 # controls_licor_picarro_comparison$Licor_TotalCO2 <- controls_licor_picarro_comparison$`Licor_TotalCO2 (ppm)`
 
@@ -784,7 +797,7 @@ Now that the relationship between licor and picarro is known for each measuremen
 
 ```{r}
 samples_resp_instrument_corrected <- samples_resp %>%
-  filter(!stringr::str_detect(JarIDNum, "^C")) %>% # Taking controls out
+  filter(!stringr::str_detect(JarIDNum, "^C")) %>% # Takes controls out
   left_join(licor_picarro_models_simplified, by = c("Date" = "GasMeasurementDate")) %>%
   # for samples with no equivalent day licor readings, use the average slope of all days
   mutate(LicorPicarroIntercept = ifelse(!(Date %in% licor_picarro_models_simplified$GasMeasurementDate), headspace_CO2_comp$coefficients[[1]],
@@ -848,7 +861,7 @@ plot_resp <- function(resp_dat = samples_resp,
   summary_title = ""
 
   samples_resp_plot <- resp_dat %>%
-    select(`Sample Number`, contains("Day"), contains("Time"),
+    select(`JarIDNum`, contains("Day"), contains("Time"),
            `TotalCO2 (ppm)`:PercentCH4,
            all_of(GroupingVars))
 
