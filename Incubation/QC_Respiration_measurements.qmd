@@ -483,20 +483,30 @@ end_dates <- tribble(
   mutate(end_date = as.Date(end_date))
 
 samples_resp_tmp <- samples_resp %>% 
-  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` > as.Date("2026-05-25")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` > as.Date("2026-05-26")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-05-30")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" & `Date` > as.Date("2026-05-31")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` > as.Date("2026-06-26")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` > as.Date("2026-06-27")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-06-28")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` > as.Date("2026-06-29")))) %>% 
+  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-04-20") | `Date` > as.Date("2026-05-25")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-04-21") | `Date` > as.Date("2026-05-26")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-04-25") | `Date` > as.Date("2026-05-30")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" &  `Date` < as.Date("2026-04-26") | `Date` > as.Date("2026-05-31")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-05-22") |  `Date` > as.Date("2026-06-26")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-05-23") |  `Date` > as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-05-24") |  `Date` > as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` < as.Date("2026-05-25") |  `Date` > as.Date("2026-06-29")))) %>% 
   select(`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`)
 
 wrong_days <- samples_resp_tmp %>% 
   filter(IncubationDay <= 0 | IncubationDay > 35) %>% 
   select(`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`)
 
+
+samples_resp <- samples_resp %>% 
+  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-04-20") | `Date` > as.Date("2026-05-25")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-04-21") | `Date` > as.Date("2026-05-26")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-04-25") | `Date` > as.Date("2026-05-30")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" &  `Date` < as.Date("2026-04-26") | `Date` > as.Date("2026-05-31")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-05-22") |  `Date` > as.Date("2026-06-26")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-05-23") |  `Date` > as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-05-24") |  `Date` > as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` < as.Date("2026-05-25") |  `Date` > as.Date("2026-06-29"))))
 
 # Samples resp rate table for Maggie D
 samples_resp_rate_table <- samples_resp %>% 
@@ -738,14 +748,14 @@ ggplot(licor_picarro_comparison %>% mutate(Date = as.factor(Date)),
 #still need to figure out R2
 #next time try to do rates and move past comparisons
 
-controls_licor_picarro_comparison$picarro_TotalCO2 <- controls_licor_picarro_comparison$`picarro_TotalCO2 (ppm)`
+# controls_licor_picarro_comparison$picarro_TotalCO2 <- controls_licor_picarro_comparison$`picarro_TotalCO2 (ppm)`
 
-controls_licor_picarro_comparison$Licor_TotalCO2 <- controls_licor_picarro_comparison$`Licor_TotalCO2 (ppm)`
+# controls_licor_picarro_comparison$Licor_TotalCO2 <- controls_licor_picarro_comparison$`Licor_TotalCO2 (ppm)`
 
-ggplot(controls_licor_picarro_comparison, aes(x = picarro_TotalCO2, 
-           y = Licor_TotalCO2, group = Date)) +
-  geom_point() +
-  ylim(c(-500, 1000))
+#ggplot(controls_licor_picarro_comparison, aes(x = picarro_TotalCO2, 
+#           y = Licor_TotalCO2, group = Date)) +
+#  geom_point() +
+#  ylim(c(-500, 1000))
 
 
 #ggplot(subset(controls_licor_picarro_comparison, picarro_TotalCO2 != NA %>% mutate(Date = s.factor(Date)), 
@@ -838,7 +848,7 @@ plot_resp <- function(resp_dat = samples_resp,
   summary_title = ""
 
   samples_resp_plot <- resp_dat %>%
-    select(`SampleID`, contains("Day"), contains("Time"),
+    select(`Sample Number`, contains("Day"), contains("Time"),
            `TotalCO2 (ppm)`:PercentCH4,
            all_of(GroupingVars))
 
@@ -888,7 +898,7 @@ plot_resp <- function(resp_dat = samples_resp,
     summary_plot <- summary_plot +
     geom_text_repel(data = samples_resp_plot,
                aes(y = !!ycolumn,
-                   label = `SampleID`))
+                   label = `Jar Number`))
     label_title = "_labels"
     }
 
@@ -913,7 +923,7 @@ QC_group_by_site_PF <- samples_resp %>%
            sep = "-", remove = F) %>%
   rename(Round = `Round Subset (A,B,C,D).x`) %>%
   mutate(SiteAbbrPermCoal = paste(SiteAbbr, `Permafrost or Coalescence?`)) %>%
-  mutate(SiteIncRound = paste(Site, "- Round", `Incubation Round.x`)) %>%
+  mutate(SiteIncRound = paste(Site, `Incubation Round.x`)) %>%
   filter(!is.na(SiteAbbrPermCoal)) %>%
   filter(`Permafrost or Coalescence?` == "PF") #%>%
 #  filter(`PreIncubationDay` > 10)
@@ -925,7 +935,7 @@ QC_group_by_site_COAL <- samples_resp_instrument_corrected %>%
            sep = "-", remove = F) %>%
   rename(Round = `Round Subset (A,B,C,D).x`) %>%
   mutate(SiteAbbrPermCoal = paste(SiteAbbr, `Permafrost or Coalescence?`)) %>%
-  mutate(SiteIncRound = paste(Site, "- Round", `Incubation Round`)) %>%
+  mutate(SiteIncRound = paste(Site, `Incubation Round.x`)) %>%
   filter(!is.na(SiteAbbrPermCoal)) %>%
   filter(`Permafrost or Coalescence?` == "Coal")
 
