@@ -463,10 +463,43 @@ wrong_jar_ID <- samples_resp %>%
          str_detect(`Jar Number`, "^OC")) %>% 
   select(`Jar Number`) # 0 obs left
 
+# 20NOC2026 -- TS -- there are a lot of observations that have a incubation day >35 (the length of the incubation), I'm going to ID those and figure out why that's happening.
+wrong_days <- samples_resp %>% 
+  filter(IncubationDay <= 0 | IncubationDay > 35) %>% 
+  select(`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`)
+
+# 20NOC2026 -- TS --  making a table for round-subset end dates
+end_dates <- tribble(
+  ~Round, ~Subset, ~ end_date,
+  "1", "A", "2026-05-25",
+  "1", "B", "2026-05-26",
+  "1", "C", "2026-05-30",
+  "1", "D", "2026-05-31",
+  "2", "A", "2026-06-26",
+  "2", "B", "2026-06-27",
+  "2", "C", "2026-06-28",
+  "2", "C", "2026-06-29"
+) %>% 
+  mutate(end_date = as.Date(end_date))
+
+samples_resp_tmp <- samples_resp %>% 
+  filter(!(`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & Date > as.Date("2026-05-25")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & Date > as.Date("2026-05-26")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & Date > as.Date("2026-05-30")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" & Date > as.Date("2026-05-31")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & Date > as.Date("2026-06-26")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & Date > as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & Date > as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & Date > as.Date("2026-06-29")))
+
+wrong_days <- samples_resp_tmp %>% 
+  filter(IncubationDay <= 0 | IncubationDay > 35) %>% 
+  select(`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`)
+
 
 # Samples resp rate table for Maggie D
 samples_resp_rate_table <- samples_resp %>% 
-  select(`Jar Number`, `IncubationStart`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, `IncubationDay`, `IncubationTime`, `umol_CO2_in_headspace`, `umol_CH4_in_headspace`, `umol_CO2_per_molAir`, `umol_CH4_per_molAir`, `ug_C_CO2_in_headspace`, `ug_C_CH4_in_headspace`, `ug_C_CO2_per_g_dry_soil`, `ug_C_CH4_per_g_dry_soil`, `ug_C_CO2_per_g_dry_soil_per_hour`, `ug_C_CO2_per_g_dry_soil_per_day`, `ug_C_CH4_per_g_dry_soil_per_hour`, `ug_C_CH4_per_g_dry_soil_per_day`)
+  select(`Jar Number`, `IncubationStart`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, `IncubationDay`, `IncubationTime`, `TEA`, `Actual Incubation Temp`, `Permafrost or Coalescence?`, `Site`, `umol_CO2_in_headspace`, `umol_CH4_in_headspace`, `umol_CO2_per_molAir`, `umol_CH4_per_molAir`, `ug_C_CO2_in_headspace`, `ug_C_CH4_in_headspace`, `ug_C_CO2_per_g_dry_soil`, `ug_C_CH4_per_g_dry_soil`, `ug_C_CO2_per_g_dry_soil_per_hour`, `ug_C_CO2_per_g_dry_soil_per_day`, `ug_C_CH4_per_g_dry_soil_per_hour`, `ug_C_CH4_per_g_dry_soil_per_day`)
 
 
 
@@ -754,7 +787,7 @@ samples_resp_instrument_corrected <- samples_resp %>%
           ug_C_CO2_per_g_soil_inst_corrected = ug_C_CO2_in_headspace_inst_corrected/soil_weight_dry,
           ug_C_CO2_per_g_dry_soil_per_hour_inst_corrected = ug_C_CO2_per_g_soil_inst_corrected/as.numeric(TimeSinceZerod, unit = "hours"),
          ug_C_CO2_per_g_dry_soil_per_day_inst_corrected = ug_C_CO2_per_g_soil_inst_corrected/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
-  select(JarIDNum,`Jar Number`, Date, IncubationDay, `Round Subset (A,B,C,D).x`, contains("ug_C_CO2"), Site, 
+  select(JarIDNum,`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, contains("ug_C_CO2"), Site, 
          `Permafrost or Coalescence?`,
          PreIncubationDay, MeasurementInstrument, LicorPicarroIntercept, LicorPicarroSlope)
 
@@ -769,6 +802,8 @@ samples_resp_instrument_corrected %>%
              x = IncubationDay, color = SiteAbbrPermCoal)) +
     geom_point(aes_string(shape = "Site"), size = 3) +
     geom_line(aes(group = SiteAbbrPermCoal))
+
+
 
 # 
  samples_resp_instrument_corrected %>%
