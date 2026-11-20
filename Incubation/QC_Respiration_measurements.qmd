@@ -610,9 +610,20 @@ duplicates <- samples_resp %>%
 4)  Histogram for any obvious outliers. If something is very large or very small, check the raw data to be sure it isn't a typo.
 
 ```{r}
+# CO2
 samples_resp %>%
   select(`Jar Number`, Date, all_of(rate_cols)) %>%
   pivot_longer(all_of(rate_cols), names_to = "Rates", values_to = "Rate Value") %>%
+  ggplot(aes(x = Date, y = `Rate Value`)) +
+  geom_boxplot(aes(group = Date), outliers = F) + 
+  geom_point(position = "jitter") + # remove this row...
+  geom_text_repel(aes(label = `Jar Number`)) + # and this row if you want to see ONLY boxplots
+  facet_wrap(~Rates, scales = "free_y")
+
+#CH4
+samples_resp %>%
+  select(`Jar Number`, Date, all_of(picarro_rate_cols)) %>%
+  pivot_longer(all_of(picarro_rate_cols), names_to = "Rates", values_to = "Rate Value") %>%
   ggplot(aes(x = Date, y = `Rate Value`)) +
   geom_boxplot(aes(group = Date), outliers = F) + 
   geom_point(position = "jitter") + # remove this row...
