@@ -444,6 +444,25 @@ samples_resp <- resp_dat_raw$resp_raw %>%
          ug_C_CH4_per_g_dry_soil_per_day = ug_C_CH4_per_g_dry_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
     mutate(PercentCH4 = `ug_C_CH4_per_g_dry_soil`/(`ug_C_CH4_per_g_dry_soil` + `ug_C_CO2_per_g_dry_soil`))
 
+# 20NOV2026 -- TS -- fixing issue jar IDs (some had two dashes in the jar number column, IC COAL had samples labeled as OC coal)
+
+# 20NOV2026 -- TS -- first I'm going to ID the observations with the wrong jar IDs
+wrong_jar_ID <- samples_resp %>% 
+  filter(str_detect(`Jar Number`, "-{2,}") |
+         str_detect(`Jar Number`, "^OC")) %>% 
+  select(`Jar Number`)
+
+# 20NOV2026 -- TS -- now I'm going to fix them in samples rest
+samples_resp <- samples_resp %>% 
+  mutate(`Jar Number` = str_replace_all(`Jar Number`, "-{2,}", "-"),
+         `Jar Number` = str_replace(`Jar Number`, "^OC", "IC"))
+
+# 20NOV2026 -- TS -- quick check
+wrong_jar_ID <- samples_resp %>% 
+  filter(str_detect(`Jar Number`, "-{2,}") |
+         str_detect(`Jar Number`, "^OC")) %>% 
+  select(`Jar Number`) # 0 obs left
+
 
 # Samples resp rate table for Maggie D
 samples_resp_rate_table <- samples_resp %>% 
@@ -721,7 +740,7 @@ Now that the relationship between licor and picarro is known for each measuremen
 
 ```{r}
 samples_resp_instrument_corrected <- samples_resp %>%
-  filter(!stringr::str_detect(JarIDNum, "^C")) %>% 
+  filter(!stringr::str_detect(JarIDNum, "^C")) %>% # Taking controls out
   left_join(licor_picarro_models_simplified, by = c("Date" = "GasMeasurementDate")) %>%
   # for samples with no equivalent day licor readings, use the average slope of all days
   mutate(LicorPicarroIntercept = ifelse(!(Date %in% licor_picarro_models_simplified$GasMeasurementDate), headspace_CO2_comp$coefficients[[1]],
@@ -750,6 +769,7 @@ samples_resp_instrument_corrected %>%
              x = IncubationDay, color = SiteAbbrPermCoal)) +
     geom_point(aes_string(shape = "Site"), size = 3) +
     geom_line(aes(group = SiteAbbrPermCoal))
+
 # 
  samples_resp_instrument_corrected %>%
    ggplot(aes(y = ug_C_CO2_per_g_dry_soil_per_day_inst_corrected, x =ug_C_CO2_per_g_dry_soil_per_day)) +
