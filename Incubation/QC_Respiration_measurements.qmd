@@ -438,7 +438,7 @@ samples_resp <- resp_dat_raw$resp_raw %>%
          ug_C_CH4_per_g_dry_soil = ug_C_CH4_in_headspace/soil_weight_dry) %>%
   # make it a rate just using temporary numbers here
   mutate(ug_C_CO2_per_g_dry_soil_per_hour = ug_C_CO2_per_g_dry_soil/as.numeric(TimeSinceZerod, unit = "hours")) %>% 
-  mutate(cumulative_ug_C_CO2_per_g_soil = ug_C_CO2_per_g_dry_soil_per_hour * TimeSinceZerod,
+  mutate(cumulative_ug_C_CO2_per_g_soil = ug_C_CO2_per_g_dry_soil_per_hour * as.numeric(TimeSinceZerod, unit = "hours"),
          ug_C_CO2_per_g_dry_soil_per_day = ug_C_CO2_per_g_dry_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
   mutate(ug_C_CH4_per_g_dry_soil_per_hour = ug_C_CH4_per_g_dry_soil/as.numeric(TimeSinceZerod, unit = "hours"),
          ug_C_CH4_per_g_dry_soil_per_day = ug_C_CH4_per_g_dry_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
@@ -993,165 +993,222 @@ site_pf_co2_plot <- plot_resp(resp_dat = samples_resp,
                    GroupingVars = c("SiteIncRound", "TEA", "SiteAbbrPermCoal", "Actual Incubation Temp"))
 site_pf_co2_plot + facet_grid(`Actual Incubation Temp` ~ SiteAbbrPermCoal)
 
-site_pf_percCH4_plot <- plot_resp(resp_dat = QC_group_by_site_PF,
-                  yval = "PercentCH4",
-                  xval = "Date",
-                  summary_plot = T,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+## Box plots
+boxplot_data_CO2 <- samples_resp %>% 
+  arrange(JarIDNum, IncubationDay) %>% 
+  group_by(JarIDNum) %>%
+  mutate(cum_ug_C = cumsum(cumulative_ug_C_CO2_per_g_soil))
 
-site_pf_percCH4_plot
+boxplot_data_CH4 <- samples_resp %>% 
+  arrange(JarIDNum, IncubationDay) %>% 
+  group_by(JarIDNum) %>%
+  mutate(cum_ug_C = cumsum(ug_C_CH4_per_g_dry_soil))
 
-# TS -- 12OCT -- there is no percent CO2 column to use
-# site_pf_percCO2_plot <- plot_resp(resp_dat = QC_group_by_site_PF,
-#                  yval = "PercentCO2",
-#                  xval = "Date",
-#                  summary_plot = T,
-#                  jar_labels = F, 
-#                  all_points = T,
-#                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-
-# site_pf_percCO2_plot
-
-
-site_pf_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_PF,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
-                  xval = "Date",
-                  jar_labels = T, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_pf_ch4_plot_label
-
-site_pf_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_PF,
-                   yval = "ug_C_CO2_per_g_dry_soil_per_day",
-                   xval = "Date",
-                   jar_labels = T,
-                   all_points = T,
-                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_pf_co2_plot_label
-
-site_pf_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_PF,
-                   yval = "PercentCH4",
-                   xval = "Date",
-                   jar_labels = T,
-                   all_points = T,
-                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_pf_percCH4_plot_label
-
-site_pf_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_PF,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
-                  xval = "Date",
-                  summary_plot = F,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-
-site_pf_ch4_plot_pointsonly
-
-site_pf_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_PF,
-                  yval = "ug_C_CO2_per_g_dry_soil_per_day",
-                  xval = "Date",
-                  summary_plot = F,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_pf_co2_plot_pointsonly
-
-site_pf_percCH4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_PF,
-                  yval = "PercentCH4",
-                  xval = "Date",
-                  summary_plot = F,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_pf_percCH4_plot_pointsonly
-
-# TS -- 12OCT -- Create coalescence plots
-
-site_coal_ch4_plot <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                  yval = "ug_C_CH4_per_g_soil_per_hour",
-                  xval = "Date",
-                  summary_plot = T,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-
-site_coal_ch4_plot
-
-site_coal_co2_plot <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                   yval = "ug_C_CO2_per_g_dry_soil_per_day",
-                   xval = "Date",
-                   summary_plot = T,
-                   jar_labels = F,
-                   all_points = T,
-                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_coal_co2_plot
-
-site_coal_percCH4_plot <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                  yval = "PercentCH4",
-                  xval = "Date",
-                  summary_plot = T,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-
-site_coal_percCH4_plot
-
-# TS -- 12OCT -- there is no percent CO2 column to use
-# site_pf_percCO2_plot <- plot_resp(resp_dat = QC_group_by_site_PF,
-#                  yval = "PercentCO2",
-#                  xval = "Date",
-#                  summary_plot = T,
-#                  jar_labels = F, 
-#                  all_points = T,
-#                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-
-# site_pf_percCO2_plot
+ boxplot_data_mean_CO2 <- boxplot_data_CO2 %>% 
+   group_by(TEA, `Actual Incubation Temp`, SiteAbbrPermCoal, Site) %>% 
+   summarise(
+     mean = mean(cum_ug_C),
+     sd = sd(cum_ug_C),
+     se = sd / sqrt(n()),
+     .groups = "drop"
+   )
+ 
+  boxplot_data_mean_CH4 <- boxplot_data_CH4 %>% 
+   group_by(TEA, `Actual Incubation Temp`, SiteAbbrPermCoal, Site) %>% 
+   summarise(
+     mean = mean(cum_ug_C),
+     sd = sd(cum_ug_C),
+     se = sd / sqrt(n()),
+     .groups = "drop"
+   )
+ 
+ mean_ug_c_CO2_per_g_dry_soil_boxplot <- ggplot(boxplot_data_mean_CO2, aes(x = TEA, y = mean, colour = SiteAbbrPermCoal)) +
+  geom_boxplot() +
+  labs(y = "35 day mean ug C CO2 per g dry soil")
+mean_ug_c_CO2_per_g_dry_soil_boxplot + facet_grid(`Actual Incubation Temp` ~ Site)
 
 
-site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
-                  xval = "Date",
-                  jar_labels = T, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_coal_ch4_plot_label
+ mean_ug_c_CH4_per_g_dry_soil_boxplot <- ggplot(boxplot_data_mean_CH4, aes(x = TEA, y = mean, colour = SiteAbbrPermCoal)) +
+  geom_boxplot() +
+  labs(y = "35 day mean ug C CH4 per g dry soil")
+mean_ug_c_CH4_per_g_dry_soil_boxplot + facet_grid(`Actual Incubation Temp` ~ Site)
 
-site_coal_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                   yval = "ug_C_CO2_per_g_dry_soil_per_day",
-                   xval = "Date",
-                   jar_labels = T,
-                   all_points = T,
-                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_coal_co2_plot_label
+## Checking one jar to see if cumulative rate actually worked
+# boxplot_data_tmp_jar298 <- samples_resp %>% 
+#   arrange(JarIDNum, IncubationDay) %>% 
+#   group_by(JarIDNum) %>%
+#   mutate(cum_ug_C = cumsum(ug_C_CO2_per_g_dry_soil)) %>% 
+#   filter(JarIDNum == "298") %>% 
+#   select(JarIDNum, ug_C_CO2_per_g_dry_soil_per_hour, TimeSinceZerod, cumulative_ug_C_CO2_per_g_soil, cum_ug_C)
+# 
+# 
+# samples_resp_jar298 <- samples_resp %>% 
+#   arrange(JarIDNum, SiteIncRound, SiteAbbrPermCoal, IncubationDay) %>% 
+#   group_by(JarIDNum, SiteIncRound, SiteAbbrPermCoal, IncubationDay) %>%
+#   filter(JarIDNum == "298") %>% 
+#   select(JarIDNum, IncubationDay, ug_C_CO2_per_g_dry_soil_per_hour, TimeSinceZerod, cumulative_ug_C_CO2_per_g_soil)
 
-site_coal_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                   yval = "PercentCH4",
-                   xval = "Date",
-                   jar_labels = T,
-                   all_points = T,
-                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_coal_percCH4_plot_label
 
-site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                  yval = "ug_C_CH4_per_g_soil_per_day",
-                  xval = "Date",
-                  summary_plot = F,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
 
-site_coal_ch4_plot_pointsonly
-
-site_coal_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_COAL,
-                  yval = "ug_C_CO2_per_g_dry_soil_per_day",
-                  xval = "Date",
-                  summary_plot = F,
-                  jar_labels = F, 
-                  all_points = T,
-                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
-site_coal_co2_plot_pointsonly
+# site_pf_percCH4_plot <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                   yval = "PercentCH4",
+#                   xval = "Date",
+#                   summary_plot = T,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# site_pf_percCH4_plot
+# 
+# # TS -- 12OCT -- there is no percent CO2 column to use
+# # site_pf_percCO2_plot <- plot_resp(resp_dat = QC_group_by_site_PF,
+# #                  yval = "PercentCO2",
+# #                  xval = "Date",
+# #                  summary_plot = T,
+# #                  jar_labels = F, 
+# #                  all_points = T,
+# #                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# # site_pf_percCO2_plot
+# 
+# 
+# site_pf_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                   yval = "ug_C_CH4_per_g_soil_per_day",
+#                   xval = "Date",
+#                   jar_labels = T, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_pf_ch4_plot_label
+# 
+# site_pf_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                    yval = "ug_C_CO2_per_g_dry_soil_per_day",
+#                    xval = "Date",
+#                    jar_labels = T,
+#                    all_points = T,
+#                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_pf_co2_plot_label
+# 
+# site_pf_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                    yval = "PercentCH4",
+#                    xval = "Date",
+#                    jar_labels = T,
+#                    all_points = T,
+#                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_pf_percCH4_plot_label
+# 
+# site_pf_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                   yval = "ug_C_CH4_per_g_soil_per_day",
+#                   xval = "Date",
+#                   summary_plot = F,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# site_pf_ch4_plot_pointsonly
+# 
+# site_pf_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                   yval = "ug_C_CO2_per_g_dry_soil_per_day",
+#                   xval = "Date",
+#                   summary_plot = F,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_pf_co2_plot_pointsonly
+# 
+# site_pf_percCH4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_PF,
+#                   yval = "PercentCH4",
+#                   xval = "Date",
+#                   summary_plot = F,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_pf_percCH4_plot_pointsonly
+# 
+# # TS -- 12OCT -- Create coalescence plots
+# 
+# site_coal_ch4_plot <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                   yval = "ug_C_CH4_per_g_soil_per_hour",
+#                   xval = "Date",
+#                   summary_plot = T,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# site_coal_ch4_plot
+# 
+# site_coal_co2_plot <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                    yval = "ug_C_CO2_per_g_dry_soil_per_day",
+#                    xval = "Date",
+#                    summary_plot = T,
+#                    jar_labels = F,
+#                    all_points = T,
+#                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_coal_co2_plot
+# 
+# site_coal_percCH4_plot <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                   yval = "PercentCH4",
+#                   xval = "Date",
+#                   summary_plot = T,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# site_coal_percCH4_plot
+# 
+# # TS -- 12OCT -- there is no percent CO2 column to use
+# # site_pf_percCO2_plot <- plot_resp(resp_dat = QC_group_by_site_PF,
+# #                  yval = "PercentCO2",
+# #                  xval = "Date",
+# #                  summary_plot = T,
+# #                  jar_labels = F, 
+# #                  all_points = T,
+# #                  GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# # site_pf_percCO2_plot
+# 
+# 
+# site_coal_ch4_plot_label <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                   yval = "ug_C_CH4_per_g_soil_per_day",
+#                   xval = "Date",
+#                   jar_labels = T, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_coal_ch4_plot_label
+# 
+# site_coal_co2_plot_label <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                    yval = "ug_C_CO2_per_g_dry_soil_per_day",
+#                    xval = "Date",
+#                    jar_labels = T,
+#                    all_points = T,
+#                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_coal_co2_plot_label
+# 
+# site_coal_percCH4_plot_label <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                    yval = "PercentCH4",
+#                    xval = "Date",
+#                    jar_labels = T,
+#                    all_points = T,
+#                    GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_coal_percCH4_plot_label
+# 
+# site_coal_ch4_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                   yval = "ug_C_CH4_per_g_soil_per_day",
+#                   xval = "Date",
+#                   summary_plot = F,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# 
+# site_coal_ch4_plot_pointsonly
+# 
+# site_coal_co2_plot_pointsonly <- plot_resp(resp_dat = QC_group_by_site_COAL,
+#                   yval = "ug_C_CO2_per_g_dry_soil_per_day",
+#                   xval = "Date",
+#                   summary_plot = F,
+#                   jar_labels = F, 
+#                   all_points = T,
+#                   GroupingVars = c("SiteIncRound", "SiteAbbrPermCoal"))
+# site_coal_co2_plot_pointsonly
 
 
 
