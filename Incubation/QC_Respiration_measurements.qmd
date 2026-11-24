@@ -147,45 +147,45 @@ If you set the options above to use the Ernakovich 2017 data, we'll read it in a
 Ernakovich 2017 data, DO NOT NEED TO RUN
 
 ```{r read-ernakovich2017}
-if(use_ernakovich_data){
-ernakovich_2017_CO2 <- readxl::read_excel(ernakovich2017_fp, 
-                                      sheet = 1, 
-                                      range = cell_limits(c(2,1), c(16,9)),
-                                      na = c("nan", "#VALUE!", "#DIV/0!")) %>%
-  select(`Day of Incubation`, contains("oxic")) %>%
-  pivot_longer(-`Day of Incubation`, names_to = "IncubationTreatmentAndStat", values_to = "CO2_ugC_gdws_hr") %>%
-  mutate(MeanSE = gsub("(^.{1,})_(.{1,}$)", "\\2", IncubationTreatmentAndStat),
-         Treatment = gsub("(^.{1,})_(.{1,}$)", "\\1", IncubationTreatmentAndStat)) %>%
-  select(-IncubationTreatmentAndStat) %>%
-  pivot_wider(names_from = "MeanSE",
-              values_from = "CO2_ugC_gdws_hr") %>%
-  # Create equivalent columns
-  mutate(ug_C_CO2_per_g_dry_soil_per_hour = mean,
-         ug_C_CO2_per_g_dry_soil_per_hour_se = se,
-         ug_C_CO2_per_g_dry_soil_per_day = mean*24,
-         ug_C_CO2_per_g_dry_soil_per_day_se = se*24) %>%
-  select(-mean, -se)
-
-ernakovich_2017_CH4 <- readxl::read_excel(ernakovich2017_fp, 
-                                      sheet = 1, 
-                                      range = cell_limits(c(20,1), c(34,9)),
-                                      na = c("nan", "#VALUE!", "#DIV/0!")) %>%
-  select(`Day of Incubation`, contains("oxic")) %>%
-  pivot_longer(-`Day of Incubation`, names_to = "IncubationTreatmentAndStat", values_to = "CH4_ugC_gdws_hr") %>%
-  mutate(MeanSE = gsub("(^.{1,})_(.{1,}$)", "\\2", IncubationTreatmentAndStat),
-         Treatment = gsub("(^.{1,})_(.{1,}$)", "\\1", IncubationTreatmentAndStat)) %>%
-  select(-IncubationTreatmentAndStat) %>%
-  pivot_wider(names_from = "MeanSE",
-              values_from = "CH4_ugC_gdws_hr") %>%
-    mutate(ug_C_CH4_per_g_soil_per_hour = mean,
-         ug_C_CH4_per_g_soil_per_hour_se = se,
-         ug_C_CH4_per_g_soil_per_day = mean*24,
-         ug_C_CH4_per_g_soil_per_day_se = se*24) %>%
-  select(-mean, -se)
-
-
-ernakovich_2017 <- left_join(ernakovich_2017_CO2, ernakovich_2017_CH4, by = c("Day of Incubation", "Treatment"))  
-}
+# if(use_ernakovich_data){
+# ernakovich_2017_CO2 <- readxl::read_excel(ernakovich2017_fp, 
+#                                       sheet = 1, 
+#                                       range = cell_limits(c(2,1), c(16,9)),
+#                                       na = c("nan", "#VALUE!", "#DIV/0!")) %>%
+#   select(`Day of Incubation`, contains("oxic")) %>%
+#   pivot_longer(-`Day of Incubation`, names_to = "IncubationTreatmentAndStat", values_to = "CO2_ugC_gdws_hr") %>%
+#   mutate(MeanSE = gsub("(^.{1,})_(.{1,}$)", "\\2", IncubationTreatmentAndStat),
+#          Treatment = gsub("(^.{1,})_(.{1,}$)", "\\1", IncubationTreatmentAndStat)) %>%
+#   select(-IncubationTreatmentAndStat) %>%
+#   pivot_wider(names_from = "MeanSE",
+#               values_from = "CO2_ugC_gdws_hr") %>%
+#   # Create equivalent columns
+#   mutate(ug_C_CO2_per_g_dry_soil_per_hour = mean,
+#          ug_C_CO2_per_g_dry_soil_per_hour_se = se,
+#          ug_C_CO2_per_g_dry_soil_per_day = mean*24,
+#          ug_C_CO2_per_g_dry_soil_per_day_se = se*24) %>%
+#   select(-mean, -se)
+# 
+# ernakovich_2017_CH4 <- readxl::read_excel(ernakovich2017_fp, 
+#                                       sheet = 1, 
+#                                       range = cell_limits(c(20,1), c(34,9)),
+#                                       na = c("nan", "#VALUE!", "#DIV/0!")) %>%
+#   select(`Day of Incubation`, contains("oxic")) %>%
+#   pivot_longer(-`Day of Incubation`, names_to = "IncubationTreatmentAndStat", values_to = "CH4_ugC_gdws_hr") %>%
+#   mutate(MeanSE = gsub("(^.{1,})_(.{1,}$)", "\\2", IncubationTreatmentAndStat),
+#          Treatment = gsub("(^.{1,})_(.{1,}$)", "\\1", IncubationTreatmentAndStat)) %>%
+#   select(-IncubationTreatmentAndStat) %>%
+#   pivot_wider(names_from = "MeanSE",
+#               values_from = "CH4_ugC_gdws_hr") %>%
+#     mutate(ug_C_CH4_per_g_soil_per_hour = mean,
+#          ug_C_CH4_per_g_soil_per_hour_se = se,
+#          ug_C_CH4_per_g_soil_per_day = mean*24,
+#          ug_C_CH4_per_g_soil_per_day_se = se*24) %>%
+#   select(-mean, -se)
+# 
+# 
+# ernakovich_2017 <- left_join(ernakovich_2017_CO2, ernakovich_2017_CH4, by = c("Day of Incubation", "Treatment"))  
+# }
 
 ```
 
@@ -534,11 +534,6 @@ samples_resp <- samples_resp %>%
            (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-05-24") &  `Date` < as.Date("2026-06-29")) |
            (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` > as.Date("2026-05-25") &  `Date` < as.Date("2026-06-30")))
 
-jar147 <- samples_resp_tmp %>% 
-  filter(JarIDNum == 147)
-
-jar379 <- samples_resp_tmp %>% 
-  filter(JarIDNum == 379)
 
 samples_resp$ug_C_CO2_per_g_dry_soil[samples_resp$ug_C_CO2_per_g_dry_soil < 0] <- 0
 
@@ -1075,10 +1070,11 @@ boxplot_data_tmp_jar298 <- samples_resp %>%
 cumulative_rates_samples_resp <- samples_resp %>% 
    arrange(JarIDNum, IncubationDay) %>% 
    group_by(JarIDNum) %>%
-   mutate(cumulative_ug_C = cumsum(ug_C_CO2_per_g_dry_soil))
+   mutate(cumulative_ug_C_CO2 = cumsum(ug_C_CO2_per_g_dry_soil),
+          cumulative_ug_C_CH4 = cumsum(ug_C_CH4_per_g_dry_soil))
 
 cumulative_rates_table <- cumulative_rates_samples_resp %>% 
-  select(JarIDNum, `Jar Number`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, Site, `Permafrost or Coalescence?`, TEA, `Actual Incubation Temp`, IncubationDay, ug_C_CO2_per_g_dry_soil, cumulative_ug_C)
+  select(JarIDNum, `Jar Number`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, Site, `Permafrost or Coalescence?`, TEA, `Actual Incubation Temp`, IncubationDay, ug_C_CO2_per_g_dry_soil, cumulative_ug_C_CO2, cumulative_ug_C_CH4)
 
 write_xlsx(cumulative_rates_table, file.path(fp_tabout, "cumulative_rates_table.xlsx"))
 
@@ -1093,17 +1089,17 @@ for (i in seq_len(nrow(combos))) {
 
   p <- cumulative_rates_samples_resp %>%
     filter(TEA == tea, `Actual Incubation Temp` == temp) %>%
-    ggplot(aes(x = IncubationDay, y = cum_ug_C, color = MeasurementInstrument)) +
+    ggplot(aes(x = IncubationDay, y = cumulative_ug_C_CH4, color = MeasurementInstrument)) +
     geom_point(size = 1) +
     geom_line() +
     facet_wrap(~ `Jar Number`, scales = "free") +
     labs(title = paste0(tea, ", ", temp, " °C"),
-         x = "Incubation day", y = "ug C-CO2 per g dry soil") +
+         x = "Incubation day", y = "ug C-CH4 per g dry soil") +
     theme_bw()
 
   print(p)
 
-  ggsave(paste0(fp_figout, "jar_check_", gsub(" ", "_", tea), "_", temp, ".png"),
+  ggsave(paste0(fp_figout, "jar_check_ch4_", gsub(" ", "_", tea), "_", temp, ".png"),
          plot = p, width = 12, height = 9)
 }
 
