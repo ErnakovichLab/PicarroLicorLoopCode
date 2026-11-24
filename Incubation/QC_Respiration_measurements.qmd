@@ -422,7 +422,7 @@ Next we need to calculate the respiration rates. In brief this means we need to:
 ```{r, respiration-calculations}
 
 samples_resp <- resp_dat_raw$resp_raw %>%
-  filter(SampleType == "Sample" | SampleType == "Vial Sample") %>%
+  filter(SampleType == "Sample" | SampleType == "Vial Sample")%>%
   # Convert into a per-gram basis, based on Jar number
   left_join(jar_info, by = "JarIDNum") %>%
   mutate(jar_headspace_mL = HeadspacemL_corrected,
@@ -443,6 +443,9 @@ samples_resp <- resp_dat_raw$resp_raw %>%
   mutate(ug_C_CH4_per_g_dry_soil_per_hour = ug_C_CH4_per_g_dry_soil/as.numeric(TimeSinceZerod, unit = "hours"),
          ug_C_CH4_per_g_dry_soil_per_day = ug_C_CH4_per_g_dry_soil/(as.numeric(TimeSinceZerod, unit = "days"))) %>%
     mutate(PercentCH4 = `ug_C_CH4_per_g_dry_soil`/(`ug_C_CH4_per_g_dry_soil` + `ug_C_CO2_per_g_dry_soil`))
+
+jar379 <- samples_resp %>% 
+  filter(JarIDNum == 379)
 
 # 20NOV2026 -- TS -- fixing issue jar IDs (some had two dashes in the jar number column, IC COAL had samples labeled as OC coal)
 
@@ -496,14 +499,14 @@ end_dates <- tribble(
   mutate(end_date = as.Date(end_date))
 
 samples_resp_tmp <- samples_resp %>% 
-  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-04-20") | `Date` > as.Date("2026-05-25")) |
+  filter(((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-04-20") | `Date` > as.Date("2026-05-25")) |
            (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-04-21") | `Date` > as.Date("2026-05-26")) |
            (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-04-25") | `Date` > as.Date("2026-05-30")) |
            (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" &  `Date` < as.Date("2026-04-26") | `Date` > as.Date("2026-05-31")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-05-22") |  `Date` > as.Date("2026-06-26")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-05-23") |  `Date` > as.Date("2026-06-27")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-05-24") |  `Date` > as.Date("2026-06-28")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` < as.Date("2026-05-25") |  `Date` > as.Date("2026-06-29")))) %>% 
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-05-22") |  `Date` > as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-05-23") |  `Date` > as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-05-24") |  `Date` > as.Date("2026-06-29")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` < as.Date("2026-05-25") |  `Date` > as.Date("2026-06-30")))) %>% 
   select(`Jar Number`, Date, IncubationDay, `Incubation Round.x`, `Round Subset (A,B,C,D).x`)
 
 wrong_days <- samples_resp_tmp %>% 
@@ -512,14 +515,38 @@ wrong_days <- samples_resp_tmp %>%
 
 
 samples_resp <- samples_resp %>% 
-  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-04-20") | `Date` > as.Date("2026-05-25")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-04-21") | `Date` > as.Date("2026-05-26")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-04-25") | `Date` > as.Date("2026-05-30")) |
-           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" &  `Date` < as.Date("2026-04-26") | `Date` > as.Date("2026-05-31")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-05-22") |  `Date` > as.Date("2026-06-26")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-05-23") |  `Date` > as.Date("2026-06-27")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-05-24") |  `Date` > as.Date("2026-06-28")) |
-           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` < as.Date("2026-05-25") |  `Date` > as.Date("2026-06-29"))))
+  filter(!((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-04-20") | `Date` > as.Date("2026-05-26")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-04-21") | `Date` > as.Date("2026-05-27")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-04-25") | `Date` > as.Date("2026-05-31")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" &  `Date` < as.Date("2026-04-26") | `Date` > as.Date("2026-06-01")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` < as.Date("2026-05-22") |  `Date` > as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` < as.Date("2026-05-23") |  `Date` > as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` < as.Date("2026-05-24") |  `Date` > as.Date("2026-06-29")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` < as.Date("2026-05-25") |  `Date` > as.Date("2026-06-30"))))
+
+samples_resp <- samples_resp %>% 
+  dplyr::filter((`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "A" & `Date` > as.Date("2026-04-20") & `Date` < as.Date("2026-05-26")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "B" & `Date` > as.Date("2026-04-21") & `Date` < as.Date("2026-05-27")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-04-25") & `Date` < as.Date("2026-05-31")) |
+           (`Incubation Round.x` == "1" & `Round Subset (A,B,C,D).x` == "D" &  `Date` > as.Date("2026-04-26") & `Date` < as.Date("2026-06-01")) |
+    (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "A" & `Date` > as.Date("2026-05-22") &  `Date` < as.Date("2026-06-27")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "B" & `Date` > as.Date("2026-05-23") &  `Date` < as.Date("2026-06-28")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "C" & `Date` > as.Date("2026-05-24") &  `Date` < as.Date("2026-06-29")) |
+           (`Incubation Round.x` == "2" & `Round Subset (A,B,C,D).x` == "D" & `Date` > as.Date("2026-05-25") &  `Date` < as.Date("2026-06-30")))
+
+jar147 <- samples_resp_tmp %>% 
+  filter(JarIDNum == 147)
+
+jar379 <- samples_resp_tmp %>% 
+  filter(JarIDNum == 379)
+
+samples_resp$ug_C_CO2_per_g_dry_soil[samples_resp$ug_C_CO2_per_g_dry_soil < 0] <- 0
+
+
+
+
+
+
 
 # Samples resp rate table for Maggie D
 samples_resp_rate_table <- samples_resp %>% 
@@ -997,7 +1024,8 @@ site_pf_co2_plot + facet_grid(`Actual Incubation Temp` ~ SiteAbbrPermCoal)
 boxplot_data_CO2 <- samples_resp %>% 
   arrange(JarIDNum, IncubationDay) %>% 
   group_by(JarIDNum) %>%
-  mutate(cum_ug_C = cumsum(cumulative_ug_C_CO2_per_g_soil))
+  mutate(cum_ug_C = cumsum(cumulative_ug_C_CO2_per_g_soil)) %>% 
+  filter(IncubationDay == "35")
 
 boxplot_data_CH4 <- samples_resp %>% 
   arrange(JarIDNum, IncubationDay) %>% 
@@ -1022,25 +1050,70 @@ boxplot_data_CH4 <- samples_resp %>%
      .groups = "drop"
    )
  
- mean_ug_c_CO2_per_g_dry_soil_boxplot <- ggplot(boxplot_data_mean_CO2, aes(x = TEA, y = mean, colour = SiteAbbrPermCoal)) +
+ mean_ug_c_CO2_per_g_dry_soil_boxplot <- ggplot(boxplot_data_CO2, aes(x = TEA, y = ug_C_CO2_per_g_dry_soil, colour = Site)) +
   geom_boxplot() +
+   geom_point(color = "black") +
   labs(y = "35 day mean ug C CO2 per g dry soil")
-mean_ug_c_CO2_per_g_dry_soil_boxplot + facet_grid(`Actual Incubation Temp` ~ Site)
+mean_ug_c_CO2_per_g_dry_soil_boxplot + facet_grid(`Actual Incubation Temp` ~ SiteAbbrPermCoal,  axes = "all_y", scales = "free")
 
 
- mean_ug_c_CH4_per_g_dry_soil_boxplot <- ggplot(boxplot_data_mean_CH4, aes(x = TEA, y = mean, colour = SiteAbbrPermCoal)) +
+ mean_ug_c_CH4_per_g_dry_soil_boxplot <- ggplot(boxplot_data_mean_CH4, aes(x = TEA, y = mean)) +
   geom_boxplot() +
   labs(y = "35 day mean ug C CH4 per g dry soil")
-mean_ug_c_CH4_per_g_dry_soil_boxplot + facet_grid(`Actual Incubation Temp` ~ Site)
+mean_ug_c_CH4_per_g_dry_soil_boxplot + facet_grid(`Actual Incubation Temp` ~ Site, axes = "all_y")
 
 ## Checking one jar to see if cumulative rate actually worked
-# boxplot_data_tmp_jar298 <- samples_resp %>% 
-#   arrange(JarIDNum, IncubationDay) %>% 
-#   group_by(JarIDNum) %>%
-#   mutate(cum_ug_C = cumsum(ug_C_CO2_per_g_dry_soil)) %>% 
-#   filter(JarIDNum == "298") %>% 
-#   select(JarIDNum, ug_C_CO2_per_g_dry_soil_per_hour, TimeSinceZerod, cumulative_ug_C_CO2_per_g_soil, cum_ug_C)
-# 
+boxplot_data_tmp_jar298 <- samples_resp %>% 
+   arrange(JarIDNum, IncubationDay) %>% 
+   group_by(JarIDNum) %>%
+   mutate(cum_ug_C = cumsum(ug_C_CO2_per_g_dry_soil)) %>% 
+   filter(JarIDNum == "298") %>% 
+   select(JarIDNum, ug_C_CO2_per_g_dry_soil_per_hour, TimeSinceZerod, cumulative_ug_C_CO2_per_g_soil, cum_ug_C)
+
+# Jar by jar plotting 
+
+cumulative_rates_samples_resp <- samples_resp %>% 
+   arrange(JarIDNum, IncubationDay) %>% 
+   group_by(JarIDNum) %>%
+   mutate(cumulative_ug_C = cumsum(ug_C_CO2_per_g_dry_soil))
+
+cumulative_rates_table <- cumulative_rates_samples_resp %>% 
+  select(JarIDNum, `Jar Number`, `Incubation Round.x`, `Round Subset (A,B,C,D).x`, Site, `Permafrost or Coalescence?`, TEA, `Actual Incubation Temp`, IncubationDay, ug_C_CO2_per_g_dry_soil, cumulative_ug_C)
+
+write_xlsx(cumulative_rates_table, file.path(fp_tabout, "cumulative_rates_table.xlsx"))
+
+
+combos <- samples_resp %>%
+  distinct(TEA, `Actual Incubation Temp`) %>%
+  arrange(TEA, `Actual Incubation Temp`)
+
+for (i in seq_len(nrow(combos))) {
+  tea  <- combos$TEA[i]
+  temp <- combos$`Actual Incubation Temp`[i]
+
+  p <- cumulative_rates_samples_resp %>%
+    filter(TEA == tea, `Actual Incubation Temp` == temp) %>%
+    ggplot(aes(x = IncubationDay, y = cum_ug_C, color = MeasurementInstrument)) +
+    geom_point(size = 1) +
+    geom_line() +
+    facet_wrap(~ `Jar Number`, scales = "free") +
+    labs(title = paste0(tea, ", ", temp, " °C"),
+         x = "Incubation day", y = "ug C-CO2 per g dry soil") +
+    theme_bw()
+
+  print(p)
+
+  ggsave(paste0(fp_figout, "jar_check_", gsub(" ", "_", tea), "_", temp, ".png"),
+         plot = p, width = 12, height = 9)
+}
+
+jar265 <- samples_resp %>% 
+  filter(JarIDNum == 265)
+
+
+
+
+
 # 
 # samples_resp_jar298 <- samples_resp %>% 
 #   arrange(JarIDNum, SiteIncRound, SiteAbbrPermCoal, IncubationDay) %>% 
